@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
+import axios from 'axios';
 import { 
   LineChart, 
   Line, 
@@ -13,44 +14,91 @@ import {
 import { 
   Users as UsersIcon, 
   Activity as ActivityIcon, 
-  BarChart2 as ChartIcon 
+  BarChart2 as ChartIcon,
+  RefreshCw as RefreshIcon
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
+import { toast } from '@/hooks/use-toast'; // Assuming you have a toast component
 
 const ManageGroup = () => {
-  const { id } = useParams();  // Get the group ID from the URL parameter
+  const { id } = useParams();
   const [groupData, setGroupData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // Fetch group data on mount
-  useEffect(() => {
-    // Simulating data fetch with a timeout (you can replace with API call)
-    setTimeout(() => {
-      setGroupData({
-        name: `Group ${id}`,
-        memberCount: 56,
-        recentMessages: 1200,
-        activeMembers: 45,
-        topMember: 'John Doe',
+  // Fetch group data function
+  const fetchGroupData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // TODO: Replace with actual endpoints when available
+      const groupDetailsResponse = await axios.get(
+        `https://x01xx96q-8000.inc1.devtunnels.ms/group_details/get_group_details/${3}`,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        }
+      );
+
+      const membersResponse = await axios.get(
+        `https://x01xx96q-8000.inc1.devtunnels.ms/group_details/get_group_members/${3}`,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        }
+      );
+
+      // Process and transform the data
+      const processedGroupData = {
+        name: groupDetailsResponse.data.group_name || `Group ${id}`,
+        memberCount: membersResponse.data.members?.length || 0,
+        activeMembers: membersResponse.data.members?.length || 0, // TODO: Implement active members logic
+        topMember: membersResponse.data.members?.[0]?.[0] || 'No top member', // First member as top member for now
+        
+        // TODO: Implement actual activity tracking
+        recentMessages: 0,
         activityTrend: [
-          { day: 'Mon', messages: 20 },
-          { day: 'Tue', messages: 30 },
-          { day: 'Wed', messages: 50 },
-          { day: 'Thu', messages: 75 },
-          { day: 'Fri', messages: 60 },
-          { day: 'Sat', messages: 85 },
-          { day: 'Sun', messages: 120 }
-        ], // Example trend data
-        recentActivity: [
-          { date: '2024-11-18', messages: 20 },
-          { date: '2024-11-17', messages: 15 },
+          { day: 'Mon', messages: 0 },
+          { day: 'Tue', messages: 0 },
+          { day: 'Wed', messages: 0 },
+          { day: 'Thu', messages: 0 },
+          { day: 'Fri', messages: 0 },
+          { day: 'Sat', messages: 0 },
+          { day: 'Sun', messages: 0 }
         ],
-      });
+        recentActivity: [
+          // TODO: Implement actual recent activity tracking
+          { date: new Date().toISOString().split('T')[0], messages: 0 }
+        ]
+      };
+
+      setGroupData(processedGroupData);
       setLoading(false);
-    }, 1500);  // Simulating loading time
+    } catch (err) {
+      console.error('Error fetching group data:', err);
+      setError('Failed to fetch group details');
+      setLoading(false);
+      
+      // Show toast notification
+      toast({
+        title: "Error",
+        description: "Failed to load group details",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Initial data fetch
+  useEffect(() => {
+    fetchGroupData();
   }, [id]);
 
+  // Render loading state
   if (loading) {
     return (
       <div className="container mx-auto p-6 space-y-6">
@@ -64,8 +112,33 @@ const ManageGroup = () => {
     );
   }
 
+  // Render error state
+  if (error) {
+    return (
+      <div className="container mx-auto p-6 text-center text-red-500">
+        <h2 className="text-2xl mb-4">Error Loading Group</h2>
+        <p>{error}</p>
+        <Button onClick={fetchGroupData} className="mt-4">
+          <RefreshIcon className="mr-2" /> Try Again
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto p-6 space-y-6 bg-background">
+      {/* Refresh Button */}
+      <div className="flex justify-end">
+        <Button 
+          variant="outline" 
+          onClick={fetchGroupData} 
+          disabled={loading}
+        >
+          <RefreshIcon className="mr-2 w-4 h-4" />
+          Refresh Group Data
+        </Button>
+      </div>
+
       <div className="grid md:grid-cols-2 gap-6">
         {/* Group Overview Card */}
         <Card className="w-full">

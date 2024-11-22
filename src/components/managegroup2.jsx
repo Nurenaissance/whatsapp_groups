@@ -1,7 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { Card, CardContent, Typography, Box, Grid, CircularProgress } from '@mui/material';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'; // Importing from Recharts
+import { 
+  LineChart, 
+  Line, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  Legend, 
+  ResponsiveContainer 
+} from 'recharts';
+import { 
+  Users as UsersIcon, 
+  Activity as ActivityIcon, 
+  BarChart2 as ChartIcon 
+} from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const ManageGroup = () => {
   const { id } = useParams();  // Get the group ID from the URL parameter
@@ -38,75 +53,96 @@ const ManageGroup = () => {
 
   if (loading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" height="100vh">
-        <CircularProgress />
-      </Box>
+      <div className="container mx-auto p-6 space-y-6">
+        <Skeleton className="h-[200px] w-full" />
+        <div className="grid md:grid-cols-2 gap-6">
+          <Skeleton className="h-[300px]" />
+          <Skeleton className="h-[300px]" />
+        </div>
+        <Skeleton className="h-[200px] w-full" />
+      </div>
     );
   }
 
   return (
-    <Box sx={{ flexGrow: 1, bgcolor: '#f4f4f9', p: 3, mt: 8 }}>
-      <Grid container spacing={3}>
+    <div className="container mx-auto p-6 space-y-6 bg-background">
+      <div className="grid md:grid-cols-2 gap-6">
         {/* Group Overview Card */}
-        <Grid item xs={12} md={6}>
-          <Card sx={{ height: '100%' }}>
-            <CardContent>
-              <Typography variant="h5" component="div">
-                {groupData.name}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Members: {groupData.memberCount}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Active Members: {groupData.activeMembers}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Top Member: {groupData.topMember}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
+        <Card className="w-full">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-primary">
+              <UsersIcon className="w-6 h-6" />
+              {groupData.name}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-muted p-4 rounded-lg">
+                <p className="text-sm text-muted-foreground">Members</p>
+                <p className="text-2xl font-bold">{groupData.memberCount}</p>
+              </div>
+              <div className="bg-muted p-4 rounded-lg">
+                <p className="text-sm text-muted-foreground">Active Members</p>
+                <p className="text-2xl font-bold">{groupData.activeMembers}</p>
+              </div>
+            </div>
+            <div className="text-sm text-muted-foreground mt-2">
+              Top Member: <span className="font-medium text-foreground">{groupData.topMember}</span>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Activity Trend Chart */}
-        <Grid item xs={12} md={6}>
-          <Card sx={{ height: '100%' }}>
-            <CardContent>
-              <Typography variant="h6" component="div" sx={{ mb: 2 }}>
-                Weekly Activity Trend
-              </Typography>
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={groupData.activityTrend}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="day" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Line type="monotone" dataKey="messages" stroke="#8884d8" />
-                </LineChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </Grid>
+        <Card className="w-full">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-primary">
+              <ChartIcon className="w-6 h-6" />
+              Weekly Activity Trend
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={groupData.activityTrend}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="day" stroke="hsl(var(--muted-foreground))" />
+                <YAxis stroke="hsl(var(--muted-foreground))" />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: "hsl(var(--background))", 
+                    borderColor: "hsl(var(--border))" 
+                  }} 
+                />
+                <Legend />
+                <Line type="monotone" dataKey="messages" stroke="hsl(var(--primary))" strokeWidth={2} />
+              </LineChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </div>
 
-        {/* Recent Activity */}
-        <Grid item xs={12}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" component="div" sx={{ mb: 2 }}>
-                Recent Activity
-              </Typography>
-              {groupData.recentActivity.map((activity, index) => (
-                <Box key={index} sx={{ mb: 1 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    {activity.date}: {activity.messages} messages
-                  </Typography>
-                </Box>
-              ))}
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-    </Box>
+      {/* Recent Activity */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-primary">
+            <ActivityIcon className="w-6 h-6" />
+            Recent Activity
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {groupData.recentActivity.map((activity, index) => (
+              <div 
+                key={index} 
+                className="flex justify-between items-center p-3 bg-muted rounded-lg"
+              >
+                <span className="text-sm text-muted-foreground">{activity.date}</span>
+                <span className="text-sm font-medium">{activity.messages} messages</span>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 };
 

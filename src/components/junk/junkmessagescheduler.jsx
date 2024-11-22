@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import { 
   TextField, 
   Button, 
@@ -20,7 +21,21 @@ const MessageScheduler = ({ phoneNumber = "1234567890" }) => {
   const [mediaFile, setMediaFile] = useState(null);
   const [scheduledMessages, setScheduledMessages] = useState([]);
 
-  const handleSchedule = () => {
+  // Fetch scheduled messages when component mounts
+  useEffect(() => {
+    const fetchScheduledMessages = async () => {
+      try {
+        const response = await axios.get('https://mocki.io/v1/736d0752-aa21-4bac-83a3-6af6189d7e12');
+        setScheduledMessages(response.data);
+      } catch (error) {
+        console.error('Failed to fetch scheduled messages', error);
+      }
+    };
+
+    fetchScheduledMessages();
+  }, []);
+
+  const handleSchedule = async () => {
     if (!message.trim() && !mediaFile) {
       alert('Please enter a message or upload a media file.');
       return;
@@ -30,24 +45,32 @@ const MessageScheduler = ({ phoneNumber = "1234567890" }) => {
       return;
     }
 
-    // Create a new scheduled message object
-    const newSchedule = {
-      id: Date.now(),
-      message,
-      scheduleTime,
-      mediaFile,
-      type: mediaFile ? (mediaFile.type.startsWith("video") ? "video" : "image") : "text",
-    };
+    try {
+      // Prepare the message data for scheduling
+      const scheduleData = {
+        phoneNumber,
+        message,
+        scheduleTime,
+        mediaFile,
+        type: mediaFile ? (mediaFile.type.startsWith("video") ? "video" : "image") : "text",
+      };
 
-    // Add to the scheduled messages list
-    setScheduledMessages([...scheduledMessages, newSchedule]);
+      // Send scheduling request to backend
+      const response = await axios.post('https://mocki.io/v1/736d0752-aa21-4bac-83a3-6af6189d7e12', scheduleData);
 
-    // Clear input fields after scheduling
-    setMessage('');
-    setScheduleTime('');
-    setMediaFile(null);
+      // Add the new scheduled message to the list
+      setScheduledMessages([...scheduledMessages, response.data]);
 
-    alert(`Message scheduled for ${scheduleTime}`);
+      // Clear input fields after scheduling
+      setMessage('');
+      setScheduleTime('');
+      setMediaFile(null);
+
+      alert(`Message scheduled for ${scheduleTime}`);
+    } catch (error) {
+      console.error('Failed to schedule message', error);
+      alert('Failed to schedule message');
+    }
   };
 
   const handleFileChange = (event) => {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   Plus as PlusIcon, 
   Trash2 as TrashIcon, 
@@ -19,62 +19,25 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { useNavigate } from 'react-router-dom'; // Import useNavigate
 
 const Groups = () => {
-  const navigate = useNavigate();
-  const [groups, setGroups] = useState([]);
-  const [groupMembers, setGroupMembers] = useState({});
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const navigate = useNavigate(); // Initialize navigate hook
+  const [groups, setGroups] = useState([
+    { id: 1, name: "Family Circle", members: 5, description: "Close family and relatives" },
+    { id: 2, name: "Work Buddies", members: 8, description: "Colleagues and work connections" },
+  ]);
 
   const [newGroup, setNewGroup] = useState({
     name: '',
     description: '',
-    members: ['', '']
+    members: ['', ''] // Pre-populate with two empty member fields
   });
 
   const [isCreateGroupDialogOpen, setIsCreateGroupDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState(null);
 
-  // Fetch groups and members on component mount
-  useEffect(() => {
-    const fetchGroupsAndMembers = async () => {
-      try {
-        // Fetch groups
-        const groupsResponse = await axios.get('https://fastapi2-dsfwetawhjb6gkbz.centralindia-01.azurewebsites.net/group_details/get_groups');
-        const fetchedGroups = groupsResponse.data.groups.map(group => ({
-          id: group.id,
-          name: group.name,
-          description: group.description,
-          members: group.members?.length || 0
-        }));
-
-        // Process members for each group
-        const membersByGroup = {};
-        fetchedGroups.forEach(group => {
-          const groupData = groupsResponse.data.groups.find(g => g.id === group.id);
-          if (groupData && groupData.members) {
-            membersByGroup[group.name] = groupData.members.map(member => member.name);
-          }
-        });
-
-        setGroups(fetchedGroups);
-        setGroupMembers(membersByGroup);
-        setIsLoading(false);
-      } catch (err) {
-        console.error('Error fetching groups and members:', err);
-        setError('Failed to fetch groups');
-        setIsLoading(false);
-      }
-    };
-
-    fetchGroupsAndMembers();
-  }, []);
-
-  // Rest of the component remains the same
   const handleAddMember = () => {
     setNewGroup(prev => ({
       ...prev,
@@ -109,7 +72,6 @@ const Groups = () => {
       return;
     }
 
-    // TODO: Implement actual backend call to create group
     const newGroupEntry = {
       id: Date.now(),
       name: newGroup.name,
@@ -130,31 +92,15 @@ const Groups = () => {
   };
 
   const confirmDeleteGroup = () => {
-    // TODO: Implement actual backend call to delete group
     setGroups(prev => prev.filter(g => g.id !== selectedGroup.id));
     setIsDeleteDialogOpen(false);
     setSelectedGroup(null);
   };
 
+  // New function to handle group management navigation
   const handleManageGroup = (group) => {
     navigate(`/group/${group.id}`);
   };
-
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center h-screen">
-        <p>Loading groups...</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex justify-center items-center h-screen text-red-500">
-        <p>{error}</p>
-      </div>
-    );
-  }
 
   return (
     <div className="container mx-auto p-6 max-w-4xl">
@@ -175,16 +121,14 @@ const Groups = () => {
         {groups.map(group => (
           <Card 
             key={group.id} 
-            onClick={() => handleManageGroup(group)}
-            className="hover:shadow-xl transition-all duration-300 border-border/50 hover:border-primary/50 cursor-pointer"
+            onClick={() => handleManageGroup(group)} // Add click navigation
+            className="hover:shadow-xl transition-all duration-300 border-border/50 hover:border-primary/50 cursor-pointer" // Add cursor-pointer
           >
             <CardContent className="p-6">
               <div className="flex justify-between items-start">
-                <div className="flex-1 pr-4">
+                <div className="flex-1 pr-4"> {/* Add pr-4 to prevent overlap with delete button */}
                   <h3 className="text-xl font-semibold mb-2 text-primary">{group.name}</h3>
-                  <p className="text-muted-foreground line-clamp-2">
-                    {groupMembers[group.name]?.slice(0, 3)?.join(', ') || 'No members'}
-                  </p>
+                  <p className="text-muted-foreground line-clamp-2">{group.description}</p>
                   <div className="mt-4 text-sm text-muted-foreground flex items-center gap-2">
                     <UserGroupIcon className="w-4 h-4 text-primary/70" />
                     {group.members} Members
@@ -195,7 +139,7 @@ const Groups = () => {
                   size="icon" 
                   className="hover:bg-destructive/90"
                   onClick={(e) => {
-                    e.stopPropagation();
+                    e.stopPropagation(); // Prevent card click when clicking delete
                     handleDeleteGroup(group);
                   }}
                 >
@@ -207,6 +151,7 @@ const Groups = () => {
         ))}
       </div>
 
+      {/* Rest of the component remains the same as in the previous code */}
       {/* Create Group Dialog */}
       <Dialog open={isCreateGroupDialogOpen} onOpenChange={setIsCreateGroupDialogOpen}>
         <DialogContent className="sm:max-w-[600px]">
@@ -259,7 +204,7 @@ const Groups = () => {
                 {newGroup.members.map((member, index) => (
                   <div key={index} className="flex items-center space-x-2 mb-2">
                     <Input 
-                      placeholder={`Number for Member ${index + 1}`}
+                      placeholder={`Phone or email for Member ${index + 1}`}
                       value={member}
                       onChange={(e) => handleMemberChange(index, e.target.value)}
                       className="flex-1"

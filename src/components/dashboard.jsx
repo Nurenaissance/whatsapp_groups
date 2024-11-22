@@ -26,105 +26,77 @@ import {
   Bar
 } from 'recharts';
 import { FiberManualRecord as FiberManualRecordIcon } from '@mui/icons-material';
-
-// Placeholder for your topic cloud component
 import TopicCloud from './topiccloud';
-
-// Centralized data management with easy endpoint replacement
-const DataService = {
-  // Replace these with your actual API endpoints
-  getSentimentData: (group) => {
-    const sentimentData = {
-      'Group A': [
-        { day: 'Monday', Positive: 40, Neutral: 35, Negative: 15, Commercial: 10 },
-        { day: 'Tuesday', Positive: 45, Neutral: 30, Negative: 15, Commercial: 10 },
-        { day: 'Wednesday', Positive: 35, Neutral: 40, Negative: 15, Commercial: 10 },
-        { day: 'Thursday', Positive: 50, Neutral: 25, Negative: 15, Commercial: 10 },
-        { day: 'Friday', Positive: 55, Neutral: 20, Negative: 15, Commercial: 10 }
-      ],
-      'Group B': [
-        { day: 'Monday', Positive: 35, Neutral: 40, Negative: 10, Commercial: 15 },
-        { day: 'Tuesday', Positive: 40, Neutral: 35, Negative: 10, Commercial: 15 },
-        { day: 'Wednesday', Positive: 30, Neutral: 45, Negative: 10, Commercial: 15 },
-        { day: 'Thursday', Positive: 45, Neutral: 30, Negative: 10, Commercial: 15 },
-        { day: 'Friday', Positive: 50, Neutral: 25, Negative: 10, Commercial: 15 }
-      ]
-    };
-    return Promise.resolve(sentimentData[group]);
-  },
-
-  getEngagementData: (group) => {
-    const engagementData = {
-      'Group A': [
-        { metric: 'Active Members', score: 85 },
-        { metric: 'Engagement Rate', score: 75 },
-        { metric: 'Response Rate', score: 65 },
-      ],
-      'Group B': [
-        { metric: 'Active Members', score: 90 },
-        { metric: 'Engagement Rate', score: 80 },
-        { metric: 'Response Rate', score: 70 },
-      ]
-    };
-    return Promise.resolve(engagementData[group]);
-  },
-
-  getTopicsData: (group) => {
-    const topicsData = {
-      'Group A': [
-        { topic: 'Product Updates', frequency: 100 },
-        { topic: 'Customer Support', frequency: 80 },
-        { topic: 'Marketing', frequency: 60 },
-        { topic: 'Sales', frequency: 40 }
-      ],
-      'Group B': [
-        { topic: 'Sales', frequency: 90 },
-        { topic: 'Customer Support', frequency: 70 },
-        { topic: 'Product Development', frequency: 50 },
-        { topic: 'Marketing', frequency: 45 }
-      ]
-    };
-    return Promise.resolve(topicsData[group]);
-  }
-};
+import DataService from './DataService';
 
 const Dashboard = () => {
   const theme = useTheme();
-  const [selectedGroup, setSelectedGroup] = useState('Group A');
-  const [sentimentData, setSentimentData] = useState([]);
-  const [engagementData, setEngagementData] = useState([]);
-  const [topicsData, setTopicsData] = useState([]);
+  const [selectedGroup, setSelectedGroup] = useState('');
+  const [allData, setAllData] = useState({
+    groups: [],
+    dashboardData: {}  // Will store data for all groups
+  });
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
+  // Fetch data only once when component mounts
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchAllData = async () => {
       setLoading(true);
+      setError(null);
       try {
-        const [sentiment, engagement, topics] = await Promise.all([
-          DataService.getSentimentData(selectedGroup),
-          DataService.getEngagementData(selectedGroup),
-          DataService.getTopicsData(selectedGroup)
-        ]);
+        // Fetch all groups and their corresponding data in one request
+        const groups = await DataService.getAvailableGroups();
+        if (groups.length === 0) {
+          throw new Error('No groups available');
+        }
 
-        setSentimentData(sentiment);
-        setEngagementData(engagement);
-        setTopicsData(topics);
+        // Fetch dashboard data for all groups at once
+        const allGroupsData = await DataService.getAllGroupsDashboardData();
+        
+        setAllData({
+          groups,
+          dashboardData: allGroupsData
+        });
+
+        // Set initial selected group
+        setSelectedGroup(groups[0]);
       } catch (error) {
         console.error('Failed to fetch dashboard data:', error);
+        setError('Failed to load dashboard data');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchData();
-  }, [selectedGroup]);
+    fetchAllData();
+  }, []); // Empty dependency array - only runs once
 
+  // Get current group's data
+  const getCurrentGroupData = () => {
+    if (!selectedGroup || !allData.dashboardData[selectedGroup]) {
+      return {
+        sentimentData: [],
+        engagementData: [],
+        topicsData: []
+      };
+    }
+
+    return allData.dashboardData[selectedGroup];
+  };
+
+  const currentData = getCurrentGroupData();
+  
   // Derived metrics for quick overview
-  const totalMessages = topicsData.reduce((sum, topic) => sum + topic.frequency, 0);
-  const activeMembers = engagementData.find(item => item.metric === 'Active Members')?.score || 0;
+  const totalMessages = currentData.topicsData?.reduce((sum, topic) => sum + topic.frequency, 0) || 0;
+  const activeMembers = currentData.engagementData?.find(item => item.metric === 'Active Members')?.score || 0;
 
   if (loading) {
     return <Typography>Loading dashboard...</Typography>;
+  }
+
+  if (error) {
+    return <Typography color="error">{error}</Typography>;
   }
 
   return (
@@ -139,8 +111,11 @@ const Dashboard = () => {
               label="Select Group"
               onChange={(e) => setSelectedGroup(e.target.value)}
             >
-              <MenuItem value="Group A">Group A</MenuItem>
-              <MenuItem value="Group B">Group B</MenuItem>
+              {allData.groups.map((group) => (
+                <MenuItem key={group} value={group}>
+                  {group}
+                </MenuItem>
+              ))}
             </Select>
           </FormControl>
         </Grid>
@@ -195,8 +170,12 @@ const Dashboard = () => {
           >
             <Typography variant="h6">Sentiment Ratio</Typography>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
-              <Typography>Positive: {sentimentData.find(d => d.day === 'Friday')?.Positive || 0}%</Typography>
-              <Typography>Negative: {sentimentData.find(d => d.day === 'Friday')?.Negative || 0}%</Typography>
+              <Typography>
+                Positive: {currentData.sentimentData?.find(d => d.day === 'Friday')?.Positive || 0}%
+              </Typography>
+              <Typography>
+                Negative: {currentData.sentimentData?.find(d => d.day === 'Friday')?.Negative || 0}%
+              </Typography>
             </Box>
           </Paper>
         </Grid>
@@ -213,7 +192,7 @@ const Dashboard = () => {
           >
             <Typography variant="h6" sx={{ mb: 2 }}>Sentiment Trend</Typography>
             <ResponsiveContainer width="100%" height="85%">
-              <LineChart data={sentimentData}>
+              <LineChart data={currentData.sentimentData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="day" />
                 <YAxis />
@@ -238,10 +217,10 @@ const Dashboard = () => {
           >
             <Typography variant="h6" sx={{ mb: 2 }}>Top Discussion Topics</Typography>
             <TopicCloud 
-              topics={topicsData.map(t => ({ 
+              topics={currentData.topicsData?.map(t => ({ 
                 value: t.topic, 
                 count: t.frequency 
-              }))} 
+              })) || []} 
             />
           </Paper>
         </Grid>
@@ -258,7 +237,7 @@ const Dashboard = () => {
           >
             <Typography variant="h6" sx={{ mb: 3 }}>Engagement Metrics</Typography>
             <Grid container spacing={3}>
-              {engagementData.map((metric) => (
+              {currentData.engagementData?.map((metric) => (
                 <Grid item xs={12} md={4} key={metric.metric}>
                   <Box 
                     sx={{ 
@@ -308,7 +287,7 @@ const Dashboard = () => {
                   Topic Distribution
                 </Typography>
                 <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={topicsData}>
+                  <BarChart data={currentData.topicsData}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="topic" />
                     <YAxis />
@@ -347,9 +326,7 @@ const Dashboard = () => {
                   ].map((item, index) => (
                     <ListItem key={index}>
                       <ListItemIcon>
-                        <FiberManualRecordIcon 
-                          sx={{ color: item.color }} 
-                        />
+                        <FiberManualRecordIcon sx={{ color: item.color }} />
                       </ListItemIcon>
                       <ListItemText 
                         primary={item.primary} 

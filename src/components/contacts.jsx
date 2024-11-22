@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import axios from 'axios';
 import { 
   Typography, 
   Button, 
@@ -7,71 +8,157 @@ import {
   Grid, 
   Rating, 
   Box, 
-  Divider, 
   Tabs, 
   Tab, 
   TextField, 
   Chip,
   Avatar,
   IconButton,
-  Tooltip
+  Tooltip,
+  CircularProgress,
+  Alert
 } from '@mui/material';
+
 import { 
   Message as MessageIcon, 
   PersonAdd as PersonAddIcon, 
   Sync as SyncIcon,
   Person as PersonIcon,
-  AdminPanelSettings as AdminPanelSettingsIcon
+  AdminPanelSettings as AdminPanelSettingsIcon,
+  CheckCircle as SuccessIcon,
+  Error as ErrorIcon,
+  Warning as WarningIcon
 } from '@mui/icons-material';
+import { SnackbarProvider, useSnackbar } from 'notistack';
 
-// Example Data (In a real app, this data would be fetched from an API or a backend)
-const initialGroups = [
-  {
-    name: 'Group A',
-    description: 'Core Product Team',
-    members: [
-      { id: 1, name: 'John Doe', status: 'Available', rating: 4, role: 'admin', email: 'john.doe@company.com', avatar: '/path/to/avatar1.jpg' },
-      { id: 2, name: 'Jane Smith', status: 'Away', rating: 3, role: 'member', email: 'jane.smith@company.com', avatar: '/path/to/avatar2.jpg' },
-      { id: 3, name: 'Samuel L.', status: 'Do not Disturb', rating: 5, role: 'member', email: 'samuel.l@company.com', avatar: '/path/to/avatar3.jpg' },
-    ]
-  },
-  {
-    name: 'Group B',
-    description: 'Marketing Team',
-    members: [
-      { id: 4, name: 'Alice Johnson', status: 'Available', rating: 2, role: 'member', email: 'alice.johnson@company.com', avatar: '/path/to/avatar4.jpg' },
-      { id: 5, name: 'Bob Lee', status: 'Offline', rating: 1, role: 'admin', email: 'bob.lee@company.com', avatar: '/path/to/avatar5.jpg' },
-    ]
-  }
-];
+// Dummy Endpoints
+const API_ENDPOINTS = {
+  getGroups: 'https://fastapi2-dsfwetawhjb6gkbz.centralindia-01.azurewebsites.net/group_details/get_groups',
+  updateRating: 'https://mocki.io/v1/736d0752-aa21-4bac-83a3-6af6189d7e12/{memberId}/rating',
+  sendMessage: 'https://mocki.io/v1/736d0752-aa21-4bac-83a3-6af6189d7e12',
+  addMember: 'https://mocki.io/v1/736d0752-aa21-4bac-83a3-6af6189d7e12',
+  syncContacts: 'https://mocki.io/v1/736d0752-aa21-4bac-83a3-6af6189d7e12'
+};
 
-const Contacts = () => {
-  const [groups, setGroups] = useState(initialGroups);
+const ContactsComponent = () => {
+  const [groups, setGroups] = useState([]);
   const [selectedGroupIndex, setSelectedGroupIndex] = useState(0);
-  const [ratings, setRatings] = useState(groups);
-  const [messages, setMessages] = useState({});
   const [searchTerm, setSearchTerm] = useState('');
+  const [messages, setMessages] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const { enqueueSnackbar } = useSnackbar();
 
-  // Function to handle rating change
-  const handleRatingChange = (groupIndex, memberId, newRating) => {
-    const updatedGroups = [...ratings];
-    const memberIndex = updatedGroups[groupIndex].members.findIndex(member => member.id === memberId);
-    updatedGroups[groupIndex].members[memberIndex].rating = newRating;
-    setRatings(updatedGroups);
-  };
+  // Fetch groups on component mount
+  useEffect(() => {
+    const fetchGroups = async () => {
+      try {
+        setLoading(true);
+        const response = await axios.get(API_ENDPOINTS.getGroups);
+        setGroups(response.data.groups || []);
+        setLoading(false);
+      } catch (err) {
+        setError('Failed to fetch groups');
+        setLoading(false);
+        enqueueSnackbar('Failed to fetch groups', { 
+          variant: 'error',
+          anchorOrigin: {
+            vertical: 'top',
+            horizontal: 'right',
+          },
+          autoHideDuration: 3000,
+        });
+      }
+    };
+    
+    fetchGroups();
+  }, [enqueueSnackbar]);
 
-  // Function to handle sending a personal message
-  const handleSendMessage = (memberId) => {
-    const message = messages[memberId];
-    if (message) {
-      console.log(`Sent message to member ${memberId}: ${message}`);
-      setMessages((prevMessages) => ({ ...prevMessages, [memberId]: '' }));
-    } else {
-      alert('Please enter a message before sending!');
+  // Handle rating change
+  const handleRatingChange = async (groupIndex, memberId, newRating) => {
+    try {
+      await axios.put(API_ENDPOINTS.updateRating.replace('{memberId}', memberId), { rating: newRating });
+      
+      const updatedGroups = [...groups];
+      const groupToUpdate = updatedGroups[groupIndex];
+      const memberIndex = groupToUpdate.members.findIndex(m => m.id === memberId);
+      
+      if (memberIndex !== -1) {
+        groupToUpdate.members[memberIndex] = {
+          ...groupToUpdate.members[memberIndex],
+          rating: newRating
+        };
+        
+        setGroups(updatedGroups);
+
+        enqueueSnackbar('Rating updated successfully', { 
+          variant: 'success',
+          anchorOrigin: {
+            vertical: 'top',
+            horizontal: 'right',
+          },
+          autoHideDuration: 2000,
+        });
+      }
+    } catch (err) {
+      enqueueSnackbar('Failed to update rating', { 
+        variant: 'error',
+        anchorOrigin: {
+          vertical: 'top',
+          horizontal: 'right',
+        },
+        autoHideDuration: 3000,
+      });
     }
   };
 
-  // Function to handle message change for a specific member
+  // Handle sending a message
+  const handleSendMessage = async (memberId) => {
+    const message = messages[memberId];
+    if (!message) {
+      enqueueSnackbar('Please enter a message before sending!', { 
+        variant: 'warning',
+        anchorOrigin: {
+          vertical: 'top',
+          horizontal: 'right',
+        },
+        autoHideDuration: 2000,
+      });
+      return;
+    }
+
+    try {
+      await axios.post(API_ENDPOINTS.sendMessage, {
+        senderId: 'current_user_id',
+        receiverId: memberId,
+        message: message
+      });
+
+      setMessages(prev => ({ ...prev, [memberId]: '' }));
+      
+      enqueueSnackbar('Message sent successfully!', { 
+        variant: 'success',
+        anchorOrigin: {
+          vertical: 'top',
+          horizontal: 'right',
+        },
+        autoHideDuration: 2000,
+      });
+    } catch (err) {
+     // setMessages(prev => ({ ...prev, [memberId]: '' }));
+      
+      enqueueSnackbar('Failed to send message', { 
+        variant: 'error',
+        anchorOrigin: {
+          vertical: 'top',
+          horizontal: 'right',
+        },
+        autoHideDuration: 3000,
+      });
+    }
+  };
+
+  // Handle message input change
   const handleMessageChange = (memberId, newMessage) => {
     setMessages((prevMessages) => ({
       ...prevMessages,
@@ -79,8 +166,70 @@ const Contacts = () => {
     }));
   };
 
+  // Sync contacts
+  const handleSyncContacts = async () => {
+    try {
+      const response = await axios.get(API_ENDPOINTS.syncContacts);
+      enqueueSnackbar(`Contacts synced at: ${response.data.lastSynced}`, { 
+        variant: 'success',
+        anchorOrigin: {
+          vertical: 'top',
+          horizontal: 'right',
+        },
+        autoHideDuration: 3000,
+      });
+    } catch (err) {
+      enqueueSnackbar('Failed to sync contacts', { 
+        variant: 'error',
+        anchorOrigin: {
+          vertical: 'top',
+          horizontal: 'right',
+        },
+        autoHideDuration: 3000,
+      });
+    }
+  };
+
+  // Add new member
+  const handleAddMember = async () => {
+    try {
+      const newMember = {
+        name: 'New Member',
+        email: 'new.member@company.com',
+        groupId: groups[selectedGroupIndex].id,
+        role: 'member'
+      };
+
+      const response = await axios.post(API_ENDPOINTS.addMember, newMember);
+      
+      const updatedGroups = [...groups];
+      updatedGroups[selectedGroupIndex].members.push(response.data);
+      setGroups(updatedGroups);
+      
+      enqueueSnackbar('Member added successfully!', { 
+        variant: 'success',
+        anchorOrigin: {
+          vertical: 'top',
+          horizontal: 'right',
+        },
+        autoHideDuration: 2000,
+      });
+    } catch (err) {
+      enqueueSnackbar('Failed to add new member', { 
+        variant: 'error',
+        anchorOrigin: {
+          vertical: 'top',
+          horizontal: 'right',
+        },
+        autoHideDuration: 3000,
+      });
+    }
+  };
+
   // Filtered and sorted members
   const filteredMembers = useMemo(() => {
+    if (!groups.length) return [];
+    
     const currentGroup = groups[selectedGroupIndex];
     return currentGroup.members
       .filter(member => 
@@ -95,6 +244,31 @@ const Contacts = () => {
         return a.name.localeCompare(b.name);
       });
   }, [groups, selectedGroupIndex, searchTerm]);
+
+  // Removed duplicate loading/error handling code
+  if (loading) {
+    return (
+      <Box 
+        sx={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center', 
+          height: '100vh' 
+        }}
+      >
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Alert severity="error">{error}</Alert>
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ 
@@ -114,12 +288,12 @@ const Contacts = () => {
         </Typography>
         <Box>
           <Tooltip title="Sync Contacts">
-            <IconButton color="primary">
+            <IconButton color="primary" onClick={handleSyncContacts}>
               <SyncIcon />
             </IconButton>
           </Tooltip>
           <Tooltip title="Add New Member">
-            <IconButton color="secondary">
+            <IconButton color="secondary" onClick={handleAddMember}>
               <PersonAddIcon />
             </IconButton>
           </Tooltip>
@@ -132,23 +306,19 @@ const Contacts = () => {
         onChange={(e, newValue) => setSelectedGroupIndex(newValue)}
         indicatorColor="primary"
         textColor="primary"
-        variant="fullWidth"
+        variant="scrollable"
+        scrollButtons="auto"
         sx={{ mb: 3 }}
       >
         {groups.map((group, index) => (
-          <Tab 
-            key={index} 
+          <Tab
+            key={index}
             label={
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
                 {group.name}
-                <Chip 
-                  label={group.members.length} 
-                  size="small" 
-                  color="primary" 
-                  sx={{ ml: 1 }}
-                />
+               
               </Box>
-            } 
+            }
           />
         ))}
       </Tabs>
@@ -264,6 +434,33 @@ const Contacts = () => {
         ))}
       </Grid>
     </Box>
+  );
+};
+const Contacts = () => {
+  return (
+    <SnackbarProvider
+      maxSnack={3}
+      anchorOrigin={{
+        vertical: 'top',
+        horizontal: 'right',
+      }}
+      iconVariant={{
+        success: <SuccessIcon />,
+        error: <ErrorIcon />,
+        warning: <WarningIcon />,
+        info: <MessageIcon />,
+      }}
+      style={{
+        '& .SnackbarItem-message': {
+          fontSize: '1rem',
+        },
+        '& .SnackbarItem-action': {
+          marginRight: 0,
+        }
+      }}
+    >
+      <ContactsComponent />
+    </SnackbarProvider>
   );
 };
 

@@ -1,21 +1,30 @@
 import React, { useState } from 'react';
-import { Camera } from 'lucide-react';
+import { Camera, QrCode } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { QrCode } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 
 const QRScanner = () => {
-  const [isScanning, setIsScanning] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [qrData, setQRData] = useState(null);
 
-  const handleScanQR = () => {
-    // Placeholder for QR scanning logic
-    setIsScanning(true);
-    // Simulated scanning process
-    setTimeout(() => {
-      setIsScanning(false);
-      // Add actual QR code processing logic here
-    }, 3000);
+  const handleGetQRCode = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch('https://mocki.io/v1/da9dbc22-8685-4a72-b1cc-052e2949266f');
+      const data = await response.json();
+      
+      if (data && data.code) {
+        setQRData(data.code);
+      } else {
+        console.error('Invalid QR code data');
+      }
+    } catch (error) {
+      console.error('Error fetching QR code:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -24,43 +33,32 @@ const QRScanner = () => {
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
             <QrCode className="h-6 w-6" />
-            <span>QR Code Scanner</span>
+            <span>QR Code Generator</span>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 text-center">
           <div className="bg-gray-100 rounded-lg p-6 border-2 border-dashed border-gray-300">
-            <Camera className="mx-auto h-24 w-24 text-gray-400 mb-4" />
-            <p className="text-gray-600 mb-4">
-              Scan the QR code to instantly connect to WhatsApp
-            </p>
+            {qrData ? (
+              <div className="flex justify-center">
+                <QRCodeSVG value={qrData} size={256} />
+              </div>
+            ) : (
+              <>
+                <Camera className="mx-auto h-24 w-24 text-gray-400 mb-4" />
+                <p className="text-gray-600 mb-4">
+                  Click "Get QR Now" to generate a scannable QR code
+                </p>
+              </>
+            )}
           </div>
 
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button 
-                onClick={handleScanQR} 
-                className="w-full"
-                disabled={isScanning}
-              >
-                {isScanning ? 'Scanning...' : 'Scan QR Code'}
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Scan QR Code</DialogTitle>
-              </DialogHeader>
-              <div className="flex justify-center items-center h-64">
-                {isScanning ? (
-                  <div className="animate-pulse">
-                    <QrCode className="h-32 w-32 text-gray-400" />
-                    <p className="text-center mt-4 text-gray-600">Scanning in progress...</p>
-                  </div>
-                ) : (
-                  <p>Position QR code within the frame</p>
-                )}
-              </div>
-            </DialogContent>
-          </Dialog>
+          <Button 
+            onClick={handleGetQRCode} 
+            className="w-full"
+            disabled={isLoading}
+          >
+            {isLoading ? 'Generating...' : 'Get QR Now'}
+          </Button>
         </CardContent>
       </Card>
     </div>
