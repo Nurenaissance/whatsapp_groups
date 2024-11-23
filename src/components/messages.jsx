@@ -108,29 +108,50 @@ const Messages = () => {
     fetchGroups();
   }, []);
   // Fetch Scheduled Messages
-  useEffect(() => {
-    const fetchScheduledMessages = async () => {
-      try {
-        const response = await fetch('https://fastapi2-dsfwetawhjb6gkbz.centralindia-01.azurewebsites.net/schedule_message/get_schedule_messages')
-        const data = await response.json()
-        
-        // Ensure data is an array
-        const messagesArray = Array.isArray(data) ? data : 
-          (data.messages && Array.isArray(data.messages) ? data.messages : [])
-        
-        setScheduledMessages(messagesArray)
-      } catch (error) {
-        console.error("Fetch error:", error)
-        toast({
-          title: "Error",
-          description: "Failed to fetch scheduled messages",
-          variant: "destructive"
-        })
+// Fetch Scheduled Messages
+useEffect(() => {
+  const fetchScheduledMessages = async () => {
+    try {
+      const response = await fetch('https://fastapi2-dsfwetawhjb6gkbz.centralindia-01.azurewebsites.net/schedule_message/get_schedule_messages')
+      
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
       }
+      
+      const data = await response.json()
+      
+      // Debugging: log the entire response
+      console.log('Fetched messages:', data);
+
+      // Ensure we're extracting the correct array of messages
+      const messagesArray = Array.isArray(data) ? data : 
+        (data.scheduled_messages && Array.isArray(data.scheduled_messages) ? data.scheduled_messages : 
+        (data.messages && Array.isArray(data.messages) ? data.messages : []))
+      
+      // Sort messages by scheduled time (most recent first)
+      const sortedMessages = messagesArray.sort((a, b) => 
+        new Date(b.scheduleTime) - new Date(a.scheduleTime)
+      );
+
+      setScheduledMessages(sortedMessages)
+    } catch (error) {
+      console.error("Fetch error:", error)
+      toast({
+        title: "Error",
+        description: "Failed to fetch scheduled messages",
+        variant: "destructive"
+      })
     }
+  }
+
+  fetchScheduledMessages()
   
-    fetchScheduledMessages()
-  }, [])
+  // Optional: Set up periodic refresh
+  const intervalId = setInterval(fetchScheduledMessages, 60000); // Refresh every minute
+  
+  // Cleanup interval on component unmount
+  return () => clearInterval(intervalId);
+}, [])
 
   // Handle Message Submission
   const handleSubmit = async () => {
@@ -143,25 +164,23 @@ const Messages = () => {
       })
       return
     }
-
+  
     // Prepare Message Payload
     const newMessage = {
-      id: Date.now(),
       groups: selectedGroups,
-      messageType,
-      messageContent,
+      messageType: messageType,
+      messageContent: messageContent,
+      scheduleTime: scheduledTime.toISOString(),
+      status: 'false', // Note the string 'false'
       media: media ? {
         url: URL.createObjectURL(media),
         type: media.type,
-        name: media.name
-      } : undefined,
-      mediaCaption,
-      scheduledTime: scheduledTime.toISOString(),
-      status: 'pending'
+        name: media.name,
+        file_extension: `.${media.name.split('.').pop()}`
+      } : null
     }
-
+  
     try {
-      // Simulate POST request (replace with actual API call)
       const response = await fetch('https://fastapi2-dsfwetawhjb6gkbz.centralindia-01.azurewebsites.net/schedule_message/create_schedule_message', {
         method: 'POST',
         headers: {
@@ -169,9 +188,19 @@ const Messages = () => {
         },
         body: JSON.stringify(newMessage)
       })
-
+  
       if (response.ok) {
-        setScheduledMessages([...scheduledMessages, newMessage])
+        const createdMessage = await response.json();
+        
+        // Update local state with the server-created message
+        setScheduledMessages(prev => [
+          ...prev, 
+          { 
+            ...newMessage, 
+            id: createdMessage.id || Date.now() 
+          }
+        ]);
+        
         resetForm()
         toast({
           title: "Success",
@@ -181,6 +210,7 @@ const Messages = () => {
         throw new Error('Failed to schedule message')
       }
     } catch (error) {
+      console.error(error);
       toast({
         title: "Error",
         description: "Failed to schedule message",
@@ -188,7 +218,6 @@ const Messages = () => {
       })
     }
   }
-
   // Reset Form
   const resetForm = () => {
     setMessageContent('')
@@ -202,29 +231,49 @@ const Messages = () => {
   // Delete Scheduled Message
   const handleDeleteScheduledMessage = async (id) => {
     try {
-      // Simulate DELETE request (replace with actual API call)
-      const response = await fetch(`https://mocki.io/v1/736d0752-aa21-4bac-83a3-6af6189d7e12`, {
+      const response = await fetch(`https://fastapi2-dsfwetawhjb6gkbz.centralindia-01.azurewebsites.net/schedule_message/delete_scheduled_message/${id}`, {
         method: 'DELETE'
       })
-
+  
+      const result = await response.json()
+  
       if (response.ok) {
-        setScheduledMessages(scheduledMessages.filter(msg => msg.id !== id))
+        // Immediately refetch scheduled messages
+        const fetchResponse = await fetch('https://fastapi2-dsfwetawhjb6gkbz.centralindia-01.azurewebsites.net/schedule_message/get_schedule_messages')
+        const data = await fetchResponse.json()
+        
+        // Ensure we're extracting the correct array of messages
+        const messagesArray = Array.isArray(data) ? data : 
+          (data.scheduled_messages && Array.isArray(data.scheduled_messages) ? data.scheduled_messages : 
+          (data.messages && Array.isArray(data.messages) ? data.messages : []))
+        
+        // Sort messages by scheduled time (most recent first)
+        const sortedMessages = messagesArray.sort((a, b) => 
+          new Date(b.scheduleTime) - new Date(a.scheduleTime)
+        );
+  
+        setScheduledMessages(sortedMessages)
+  
+        // Enhanced toast with more detail
         toast({
-          title: "Success",
-          description: "Scheduled message deleted"
+          title: "Message Deleted",
+          description: "Your scheduled message has been successfully removed.",
+          duration: 3000, // Show for 3 seconds
+          className: "bg-red-500 text-white", // Custom styling to make it stand out
+          icon: <Trash2 className="w-5 h-5 text-white" />, // Add a delete icon
         })
       } else {
-        throw new Error('Failed to delete message')
+        throw new Error(result.detail || 'Failed to delete message')
       }
     } catch (error) {
       toast({
-        title: "Error",
-        description: "Failed to delete scheduled message",
-        variant: "destructive"
+        title: "Deletion Failed",
+        description: error.message || "Unable to delete the scheduled message",
+        variant: "destructive",
+        duration: 2000
       })
     }
   }
-
   // File Upload Handler
   const handleFileUpload = (e) => {
     const file = e.target.files?.[0]
@@ -428,9 +477,27 @@ const Messages = () => {
                           {msg.messageType.toUpperCase()} Message
                         </div>
                         <div className="text-sm text-gray-500 flex items-center space-x-2">
-                          <Clock className="w-4 h-4" />
-                          <span>{format(new Date(msg.scheduledTime), "PPP p")}</span>
-                        </div>
+  <Clock className="w-4 h-4" />
+  <span>
+    {(() => {
+      try {
+        // First, ensure the date is a valid date string
+        const dateObj = new Date(msg.scheduleTime || msg.scheduledTime);
+        
+        // Check if the date is valid
+        if (isNaN(dateObj.getTime())) {
+          return "Invalid Date";
+        }
+        
+        // Use date-fns format if valid
+        return format(dateObj, "PPP p");
+      } catch (error) {
+        console.error("Date formatting error:", error);
+        return "Unknown Date";
+      }
+    })()}
+  </span>
+</div>
                         <div className="text-sm text-gray-500 mt-1 flex items-center space-x-2">
                           <UserCheck className="w-4 h-4" />
                           <span>Groups: {msg.groups.join(', ')}</span>

@@ -2,40 +2,50 @@ import React from 'react';
 import { TagCloud } from 'react-tagcloud';
 import { Tooltip } from '@mui/material';
 
-// Define a minimalist color palette with good contrast
 const colorPalette = [
-  '#1E90FF', // Dodger Blue - Bright and professional
-  '#FF6347', // Tomato Red - Attention-grabbing but not too aggressive
-  '#32CD32', // Lime Green - Balanced and pleasant
-  '#FFD700', // Gold - Warm and stands out on a neutral background
-  '#8A2BE2', // BlueViolet - Calm and visually interesting
-  '#FF4500', // OrangeRed - Subtle yet strong
-  '#4682B4', // SteelBlue - Understated and professional
+  '#1E90FF', '#FF6347', '#32CD32', 
+  '#FFD700', '#8A2BE2', '#FF4500', '#4682B4'
 ];
 
 const TopicCloud = ({ topics }) => {
-  // Return null if topics is null/undefined or empty array
-  if (!topics || !Array.isArray(topics) || topics.length === 0) {
+  console.log('TopicCloud received topics:', topics);
+
+  // More robust checking
+  if (!topics) {
+    console.warn('No topics provided to TopicCloud');
     return null;
   }
 
-  // Helper function to safely get color index
-  const getColorIndex = (value) => {
-    if (!value) return 0;
-    const stringValue = String(value);
-    return stringValue.length % colorPalette.length;
-  };
+  if (!Array.isArray(topics)) {
+    console.warn('Topics is not an array:', topics);
+    return null;
+  }
+
+  // Ensure each topic has the required properties
+  const validTopics = topics.filter(tag => 
+    tag && 
+    typeof tag.value === 'string' && 
+    tag.value.trim() !== '' && 
+    typeof tag.count === 'number'
+  );
+
+  console.log('Valid topics:', validTopics);
+
+  if (validTopics.length === 0) {
+    console.warn('No valid topics to display');
+    return null;
+  }
 
   return (
     <TagCloud
       minSize={16}
       maxSize={50}
-      tags={topics.filter(tag => tag && tag.value)} // Filter out invalid tags
+      tags={validTopics}
       colorOptions={{ luminosity: 'light', hue: 'blue' }}
       renderer={(tag, size) => {
         if (!tag || !tag.value) return null;
         
-        const colorIndex = getColorIndex(tag.value);
+        const colorIndex = Math.abs(tag.value.length) % colorPalette.length;
         const color = colorPalette[colorIndex];
         
         return (

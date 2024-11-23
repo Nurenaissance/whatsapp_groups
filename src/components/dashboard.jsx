@@ -206,24 +206,33 @@ const Dashboard = () => {
         </Grid>
 
         {/* Topics Cloud */}
-        <Grid item xs={12} md={6}>
-          <Paper 
-            elevation={3} 
-            sx={{ 
-              p: 2, 
-              height: 400,
-              backgroundColor: theme.palette.background.paper 
-            }}
-          >
-            <Typography variant="h6" sx={{ mb: 2 }}>Top Discussion Topics</Typography>
-            <TopicCloud 
-              topics={currentData.topicsData?.map(t => ({ 
-                value: t.topic, 
-                count: t.frequency 
-              })) || []} 
-            />
-          </Paper>
-        </Grid>
+        {/* Topics Cloud */}
+<Grid item xs={12} md={6}>
+  <Paper 
+    elevation={3} 
+    sx={{ 
+      p: 2, 
+      height: 400,
+      backgroundColor: theme.palette.background.paper 
+    }}
+  >
+    <Typography variant="h6" sx={{ mb: 2 }}>Top Discussion Topics</Typography>
+    {console.log('Current Topics Data:', currentData.topicsData)}
+    <TopicCloud 
+      topics={(() => {
+        const topicData = currentData.topicsData || [];
+        console.log('Mapped Topics:', topicData.map(t => ({ 
+          value: t.topic, 
+          count: t.frequency 
+        })));
+        return topicData.map(t => ({ 
+          value: t.topic, 
+          count: t.frequency 
+        }));
+      })()} 
+    />
+  </Paper>
+</Grid>
 
         {/* Engagement Metrics */}
         <Grid item xs={12}>

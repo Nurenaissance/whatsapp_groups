@@ -228,20 +228,33 @@ const ContactsComponent = () => {
 
   // Filtered and sorted members
   const filteredMembers = useMemo(() => {
-    if (!groups.length) return [];
+    // Early return if no groups or invalid group index
+    if (!groups || !groups.length) return [];
     
-    const currentGroup = groups[selectedGroupIndex];
-    return currentGroup.members
-      .filter(member => 
-        member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        member.email.toLowerCase().includes(searchTerm.toLowerCase())
-      )
+    // Safely get current group, defaulting to first group if index is out of bounds
+    const currentGroup = groups[selectedGroupIndex] || groups[0];
+    
+    // Safely get members, defaulting to empty array
+    const groupMembers = currentGroup.members || [];
+    
+    return groupMembers
+      .filter(member => {
+        // Ensure member and search term exist before comparing
+        if (!member || !searchTerm) return true;
+        
+        const lowerSearchTerm = searchTerm.toLowerCase();
+        return (
+          (member.name && member.name.toLowerCase().includes(lowerSearchTerm)) ||
+          (member.email && member.email.toLowerCase().includes(lowerSearchTerm))
+        );
+      })
       .sort((a, b) => {
-        // Sort by role (admins first) and then by name
-        if (a.role !== b.role) {
-          return a.role === 'admin' ? -1 : 1;
-        }
-        return a.name.localeCompare(b.name);
+        // Prioritize admin roles
+        if (a.role === 'admin' && b.role !== 'admin') return -1;
+        if (a.role !== 'admin' && b.role === 'admin') return 1;
+        
+        // Then sort by name
+        return (a.name || '').localeCompare(b.name || '');
       });
   }, [groups, selectedGroupIndex, searchTerm]);
 
