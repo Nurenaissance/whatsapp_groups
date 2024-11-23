@@ -15,12 +15,15 @@ import {
   Users as UsersIcon, 
   Activity as ActivityIcon, 
   BarChart2 as ChartIcon,
-  RefreshCw as RefreshIcon
+  RefreshCw as RefreshIcon,
+  Star as StarIcon,
+  MessageCircle as MessageIcon
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { toast } from '@/hooks/use-toast'; // Assuming you have a toast component
+import { toast } from '@/hooks/use-toast';
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const ManageGroup = () => {
   const { id } = useParams();
@@ -28,53 +31,51 @@ const ManageGroup = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const BASE_URL = 'https://fastapi2-dsfwetawhjb6gkbz.centralindia-01.azurewebsites.net';
+
   // Fetch group data function
   const fetchGroupData = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      // TODO: Replace with actual endpoints when available
+      // Fetch group details and activity
       const groupDetailsResponse = await axios.get(
-        `https://x01xx96q-8000.inc1.devtunnels.ms/group_details/get_group_details/${3}`,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-          }
-        }
+        `${BASE_URL}/group_details/get_group_details/${id}`
       );
 
-      const membersResponse = await axios.get(
-        `https://x01xx96q-8000.inc1.devtunnels.ms/group_details/get_group_members/${3}`,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-          }
-        }
+      const groupActivityResponse = await axios.get(
+        `${BASE_URL}/group_details/get_group_activity/${groupDetailsResponse.data.data.group_name.toLowerCase()}`
       );
+
+      // Process member data
+      const members = groupDetailsResponse.data.data.members;
+      const topRatedMember = [...members].sort((a, b) => b.rating - a.rating)[0];
+
+      // Create activity data for the last 7 days
+      const today = new Date();
+      const last7Days = Array.from({ length: 7 }, (_, i) => {
+        const date = new Date(today);
+        date.setDate(date.getDate() - i);
+        return date.toLocaleDateString('en-US', { weekday: 'short' });
+      }).reverse();
+
+      const activityTrend = last7Days.map(day => ({
+        day,
+        messages: groupActivityResponse.data.data.messages_per_day[day] || 0
+      }));
 
       // Process and transform the data
       const processedGroupData = {
-        name: groupDetailsResponse.data.group_name || `Group ${id}`,
-        memberCount: membersResponse.data.members?.length || 0,
-        activeMembers: membersResponse.data.members?.length || 0, // TODO: Implement active members logic
-        topMember: membersResponse.data.members?.[0]?.[0] || 'No top member', // First member as top member for now
-        
-        // TODO: Implement actual activity tracking
-        recentMessages: 0,
-        activityTrend: [
-          { day: 'Mon', messages: 0 },
-          { day: 'Tue', messages: 0 },
-          { day: 'Wed', messages: 0 },
-          { day: 'Thu', messages: 0 },
-          { day: 'Fri', messages: 0 },
-          { day: 'Sat', messages: 0 },
-          { day: 'Sun', messages: 0 }
-        ],
-        recentActivity: [
-          // TODO: Implement actual recent activity tracking
-          { date: new Date().toISOString().split('T')[0], messages: 0 }
-        ]
+        name: groupDetailsResponse.data.data.group_name,
+        description: groupDetailsResponse.data.data.group_description,
+        memberCount: members.length,
+        activeMembers: groupActivityResponse.data.data.active_members?.length || 0,
+        topMember: topRatedMember,
+        totalMessages: groupActivityResponse.data.data.total_messages,
+        activityTrend,
+        members: members.slice(0, 5), // Show top 5 members
+        messageCount: groupActivityResponse.data.data.total_messages || 0
       };
 
       setGroupData(processedGroupData);
@@ -84,7 +85,6 @@ const ManageGroup = () => {
       setError('Failed to fetch group details');
       setLoading(false);
       
-      // Show toast notification
       toast({
         title: "Error",
         description: "Failed to load group details",
@@ -93,12 +93,10 @@ const ManageGroup = () => {
     }
   };
 
-  // Initial data fetch
   useEffect(() => {
     fetchGroupData();
   }, [id]);
 
-  // Render loading state
   if (loading) {
     return (
       <div className="container mx-auto p-6 space-y-6">
@@ -112,14 +110,13 @@ const ManageGroup = () => {
     );
   }
 
-  // Render error state
   if (error) {
     return (
       <div className="container mx-auto p-6 text-center text-red-500">
         <h2 className="text-2xl mb-4">Error Loading Group</h2>
         <p>{error}</p>
         <Button onClick={fetchGroupData} className="mt-4">
-          <RefreshIcon className="mr-2" /> Try Again
+          <RefreshIcon className="mr-2 h-4 w-4" /> Try Again
         </Button>
       </div>
     );
@@ -127,50 +124,83 @@ const ManageGroup = () => {
 
   return (
     <div className="container mx-auto p-6 space-y-6 bg-background">
-      {/* Refresh Button */}
-      <div className="flex justify-end">
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold text-primary">{groupData.name}</h1>
         <Button 
           variant="outline" 
           onClick={fetchGroupData} 
           disabled={loading}
         >
-          <RefreshIcon className="mr-2 w-4 h-4" />
-          Refresh Group Data
+          <RefreshIcon className="mr-2 h-4 w-4" />
+          Refresh
         </Button>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-6">
-        {/* Group Overview Card */}
-        <Card className="w-full">
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-primary">
-              <UsersIcon className="w-6 h-6" />
-              {groupData.name}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-muted p-4 rounded-lg">
-                <p className="text-sm text-muted-foreground">Members</p>
+      {/* Stats Grid */}
+      <div className="grid md:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Total Members</p>
                 <p className="text-2xl font-bold">{groupData.memberCount}</p>
               </div>
-              <div className="bg-muted p-4 rounded-lg">
-                <p className="text-sm text-muted-foreground">Active Members</p>
-                <p className="text-2xl font-bold">{groupData.activeMembers}</p>
-              </div>
-            </div>
-            <div className="text-sm text-muted-foreground mt-2">
-              Top Member: <span className="font-medium text-foreground">{groupData.topMember}</span>
+              <UsersIcon className="h-8 w-8 text-primary opacity-75" />
             </div>
           </CardContent>
         </Card>
 
-        {/* Activity Trend Chart */}
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Active Members</p>
+                <p className="text-2xl font-bold">{groupData.activeMembers}</p>
+              </div>
+              <ActivityIcon className="h-8 w-8 text-primary opacity-75" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Total Messages</p>
+                <p className="text-2xl font-bold">{groupData.messageCount}</p>
+              </div>
+              <MessageIcon className="h-8 w-8 text-primary opacity-75" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Top Member</p>
+                <p className="text-lg font-bold truncate">{groupData.topMember?.name}</p>
+                <div className="flex items-center gap-1">
+                  <StarIcon className="h-4 w-4 text-yellow-400" />
+                  <span>{groupData.topMember?.rating}</span>
+                </div>
+              </div>
+              <Avatar className="h-12 w-12">
+                <AvatarImage src={groupData.topMember?.avatar} />
+                <AvatarFallback>{groupData.topMember?.name[0]}</AvatarFallback>
+              </Avatar>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-6">
+        {/* Activity Chart */}
         <Card className="w-full">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-primary">
-              <ChartIcon className="w-6 h-6" />
-              Weekly Activity Trend
+            <CardTitle className="flex items-center gap-2">
+              <ChartIcon className="h-5 w-5" />
+              Weekly Activity
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -185,36 +215,53 @@ const ManageGroup = () => {
                     borderColor: "hsl(var(--border))" 
                   }} 
                 />
-                <Legend />
-                <Line type="monotone" dataKey="messages" stroke="hsl(var(--primary))" strokeWidth={2} />
+                <Line 
+                  type="monotone" 
+                  dataKey="messages" 
+                  stroke="hsl(var(--primary))" 
+                  strokeWidth={2}
+                  name="Messages"
+                />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
-      </div>
 
-      {/* Recent Activity */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-primary">
-            <ActivityIcon className="w-6 h-6" />
-            Recent Activity
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {groupData.recentActivity.map((activity, index) => (
-              <div 
-                key={index} 
-                className="flex justify-between items-center p-3 bg-muted rounded-lg"
-              >
-                <span className="text-sm text-muted-foreground">{activity.date}</span>
-                <span className="text-sm font-medium">{activity.messages} messages</span>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+        {/* Members List */}
+        <Card className="w-full">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <UsersIcon className="h-5 w-5" />
+              Top Members
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {groupData.members.map((member) => (
+                <div 
+                  key={member.id} 
+                  className="flex items-center justify-between p-3 bg-muted rounded-lg"
+                >
+                  <div className="flex items-center gap-3">
+                    <Avatar>
+                      <AvatarImage src={member.avatar} />
+                      <AvatarFallback>{member.name[0]}</AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="font-medium">{member.name}</p>
+                      <p className="text-sm text-muted-foreground">{member.role}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <StarIcon className="h-4 w-4 text-yellow-400" />
+                    <span>{member.rating}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };

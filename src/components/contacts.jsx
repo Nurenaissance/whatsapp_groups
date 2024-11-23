@@ -34,8 +34,8 @@ import { SnackbarProvider, useSnackbar } from 'notistack';
 // Dummy Endpoints
 const API_ENDPOINTS = {
   getGroups: 'https://fastapi2-dsfwetawhjb6gkbz.centralindia-01.azurewebsites.net/group_details/get_groups',
-  updateRating: 'https://mocki.io/v1/736d0752-aa21-4bac-83a3-6af6189d7e12/{memberId}/rating',
-  sendMessage: 'https://mocki.io/v1/736d0752-aa21-4bac-83a3-6af6189d7e12',
+  updateRating: 'https://fastapi2-dsfwetawhjb6gkbz.centralindia-01.azurewebsites.net/contact/update-rating',
+  sendMessage: 'http://20.84.153.108:8000/messaging/send',
   addMember: 'https://mocki.io/v1/736d0752-aa21-4bac-83a3-6af6189d7e12',
   syncContacts: 'https://mocki.io/v1/736d0752-aa21-4bac-83a3-6af6189d7e12'
 };
@@ -77,15 +77,30 @@ const ContactsComponent = () => {
   // Handle rating change
   const handleRatingChange = async (groupIndex, memberId, newRating) => {
     try {
-      await axios.put(API_ENDPOINTS.updateRating.replace('{memberId}', memberId), { rating: newRating });
+      const group = groups[groupIndex];
+      if (!group) return;
+
+      // Find the member in the original group data to ensure we have the correct ID
+      const member = group.members.find(m => m.id === memberId);
+      if (!member) {
+        console.error('Member not found:', memberId);
+        return;
+      }
+
+      const ratingData = {
+        group_id: group.id,
+        member_id: member.id, // Using the original member ID from the API
+        rating: newRating
+      };
+
+      await axios.put(API_ENDPOINTS.updateRating, ratingData);
       
       const updatedGroups = [...groups];
-      const groupToUpdate = updatedGroups[groupIndex];
-      const memberIndex = groupToUpdate.members.findIndex(m => m.id === memberId);
+      const memberIndex = updatedGroups[groupIndex].members.findIndex(m => m.id === memberId);
       
       if (memberIndex !== -1) {
-        groupToUpdate.members[memberIndex] = {
-          ...groupToUpdate.members[memberIndex],
+        updatedGroups[groupIndex].members[memberIndex] = {
+          ...updatedGroups[groupIndex].members[memberIndex],
           rating: newRating
         };
         
@@ -101,6 +116,7 @@ const ContactsComponent = () => {
         });
       }
     } catch (err) {
+      console.error('Rating update error:', err);
       enqueueSnackbar('Failed to update rating', { 
         variant: 'error',
         anchorOrigin: {
@@ -111,9 +127,8 @@ const ContactsComponent = () => {
       });
     }
   };
-
   // Handle sending a message
-  const handleSendMessage = async (memberId) => {
+  const handleSendMessage = async (memberId, memberName) => {
     const message = messages[memberId];
     if (!message) {
       enqueueSnackbar('Please enter a message before sending!', { 
@@ -128,11 +143,12 @@ const ContactsComponent = () => {
     }
 
     try {
-      await axios.post(API_ENDPOINTS.sendMessage, {
-        senderId: 'current_user_id',
-        receiverId: memberId,
+      const messageData = {
+        name: memberName,
         message: message
-      });
+      };
+
+      await axios.post(API_ENDPOINTS.sendMessage, messageData);
 
       setMessages(prev => ({ ...prev, [memberId]: '' }));
       
@@ -145,8 +161,7 @@ const ContactsComponent = () => {
         autoHideDuration: 2000,
       });
     } catch (err) {
-     // setMessages(prev => ({ ...prev, [memberId]: '' }));
-      
+      console.error('Message send error:', err);
       enqueueSnackbar('Failed to send message', { 
         variant: 'error',
         anchorOrigin: {
@@ -157,7 +172,6 @@ const ContactsComponent = () => {
       });
     }
   };
-
   // Handle message input change
   const handleMessageChange = (memberId, newMessage) => {
     setMessages((prevMessages) => ({
@@ -228,18 +242,13 @@ const ContactsComponent = () => {
 
   // Filtered and sorted members
   const filteredMembers = useMemo(() => {
-    // Early return if no groups or invalid group index
     if (!groups || !groups.length) return [];
     
-    // Safely get current group, defaulting to first group if index is out of bounds
     const currentGroup = groups[selectedGroupIndex] || groups[0];
-    
-    // Safely get members, defaulting to empty array
     const groupMembers = currentGroup.members || [];
     
     return groupMembers
       .filter(member => {
-        // Ensure member and search term exist before comparing
         if (!member || !searchTerm) return true;
         
         const lowerSearchTerm = searchTerm.toLowerCase();
@@ -249,13 +258,14 @@ const ContactsComponent = () => {
         );
       })
       .sort((a, b) => {
-        // Prioritize admin roles
         if (a.role === 'admin' && b.role !== 'admin') return -1;
         if (a.role !== 'admin' && b.role === 'admin') return 1;
-        
-        // Then sort by name
         return (a.name || '').localeCompare(b.name || '');
-      });
+      })
+      .map(member => ({
+        ...member,
+        id: member.id // Explicitly preserve the original ID
+      }));
   }, [groups, selectedGroupIndex, searchTerm]);
 
   // Removed duplicate loading/error handling code
@@ -413,6 +423,7 @@ const ContactsComponent = () => {
                   <Typography variant="body2" sx={{ mr: 2 }}>
                     Performance Rating:
                   </Typography>
+                  {console.log(member,"yahandekhhh")}
                   <Rating
                     value={member.rating}
                     onChange={(_, newRating) => handleRatingChange(selectedGroupIndex, member.id, newRating)}
@@ -431,16 +442,18 @@ const ContactsComponent = () => {
                   onChange={(e) => handleMessageChange(member.id, e.target.value)}
                   sx={{ mb: 2 }}
                 />
-                
+                 {console.log(member,"yahandekh")}
                 <Button
-                  variant="contained"
-                  color="secondary"
-                  fullWidth
-                  startIcon={<MessageIcon />}
-                  onClick={() => handleSendMessage(member.id)}
-                >
-                  Send Message
-                </Button>
+                variant="contained"
+                color="secondary"
+                fullWidth
+                startIcon={<MessageIcon />}
+               
+                onClick={() => handleSendMessage(member.id, member.name)}
+              >
+                Send Message
+              </Button>
+
               </CardContent>
             </Card>
           </Grid>

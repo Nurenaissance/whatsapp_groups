@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { format } from "date-fns"
+import { parseISO, isValid } from "date-fns"
+import uploadToBlob from "./azureUpload.jsx";
 import { 
   Calendar as CalendarIcon, 
   FileText, 
@@ -49,7 +51,29 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { toast } from "@/hooks/use-toast"
 import TimePicker from './timepicker'
-const GROUPS_ENDPOINT = "https://x01xx96q-8000.inc1.devtunnels.ms/group_details/get_groups";
+const GROUPS_ENDPOINT = "https://fastapi2-dsfwetawhjb6gkbz.centralindia-01.azurewebsites.net/group_details/get_groups";
+const safeFormatDate = (dateString) => {
+  try {
+    // First try parsing as ISO string
+    const date = parseISO(dateString);
+    
+    // Check if the parsed date is valid
+    if (isValid(date)) {
+      return format(date, "PPP p");
+    }
+    
+    // If not valid as ISO, try direct Date object creation
+    const fallbackDate = new Date(dateString);
+    if (isValid(fallbackDate)) {
+      return format(fallbackDate, "PPP p");
+    }
+    
+    return "Invalid Date";
+  } catch (error) {
+    console.error("Date formatting error:", error);
+    return "Invalid Date";
+  }
+};
 const Messages = () => {
   // State Variables
   const [selectedGroups, setSelectedGroups] = useState([])
@@ -97,11 +121,21 @@ const Messages = () => {
         const response = await fetch(GROUPS_ENDPOINT);
         const data = await response.json();
 
-        // Extract group names from the API response
-        const groupNames = data.groups.map(group => group.group_name);
+        // Extract group names from the correct structure
+        // Each group has an id, name, description, and members
+        const groupNames = data.groups.map(group => ({
+          id: group.id,
+          name: group.name
+        }));
+        
         setGroups(groupNames);
       } catch (error) {
         console.error("Error fetching groups:", error);
+        toast({
+          title: "Error",
+          description: "Failed to fetch groups",
+          variant: "destructive"
+        });
       }
     };
 
@@ -154,70 +188,96 @@ useEffect(() => {
 }, [])
 
   // Handle Message Submission
-  const handleSubmit = async () => {
-    // Validation
-    if (!scheduledTime || (!messageContent && !media)) {
-      toast({
-        title: "Validation Error",
-        description: "Please fill all fields and schedule the message!",
-        variant: "destructive"
-      })
-      return
+// Handle Message Submission
+const handleSubmit = async () => {
+  // Validation
+  if (!scheduledTime || (!messageContent && !media)) {
+    toast({
+      title: "Validation Error",
+      description: "Please fill all fields and schedule the message!",
+      variant: "destructive"
+    })
+    return
+  }
+
+  try {
+    // First upload media to Azure Blob if media exists
+    let mediaURL = null
+    if (media) {
+      try {
+        // Assuming you have userId and tenantId available in your component
+        // Replace these with actual values or pass them as props
+        const userId = "default-user"  // Replace with actual userId
+        const tenantId = "default-tenant" // Replace with actual tenantId
+        
+        // Upload to Azure Blob and get URL
+        mediaURL = await uploadToBlob(media, userId, tenantId)
+      } catch (error) {
+        console.error('Error uploading to Azure:', error)
+        toast({
+          title: "Upload Error",
+          description: "Failed to upload media file",
+          variant: "destructive"
+        })
+        return
+      }
     }
-  
-    // Prepare Message Payload
+
+    // Prepare Message Payload - matching API requirements
     const newMessage = {
+      content: messageContent,
+      scheduledTime: scheduledTime.toISOString(),
       groups: selectedGroups,
       messageType: messageType,
-      messageContent: messageContent,
-      scheduleTime: scheduledTime.toISOString(),
-      status: 'false', // Note the string 'false'
+      status: false,
       media: media ? {
-        url: URL.createObjectURL(media),
+        url: mediaURL, // Use the Azure Blob URL instead of local URL
         type: media.type,
         name: media.name,
         file_extension: `.${media.name.split('.').pop()}`
       } : null
     }
-  
-    try {
-      const response = await fetch('https://fastapi2-dsfwetawhjb6gkbz.centralindia-01.azurewebsites.net/schedule_message/create_schedule_message', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(newMessage)
-      })
-  
-      if (response.ok) {
-        const createdMessage = await response.json();
-        
-        // Update local state with the server-created message
-        setScheduledMessages(prev => [
-          ...prev, 
-          { 
-            ...newMessage, 
-            id: createdMessage.id || Date.now() 
-          }
-        ]);
-        
-        resetForm()
-        toast({
-          title: "Success",
-          description: "Message scheduled successfully"
-        })
-      } else {
-        throw new Error('Failed to schedule message')
-      }
-    } catch (error) {
-      console.error(error);
+
+    const response = await fetch('https://fastapi2-dsfwetawhjb6gkbz.centralindia-01.azurewebsites.net/schedule_message/create_schedule_message', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(newMessage)
+    })
+
+    if (response.ok) {
+      const createdMessage = await response.json()
+      
+      // Update local state with the server-created message
+      setScheduledMessages(prev => [
+        ...prev, 
+        { 
+          ...newMessage,
+          messageContent: newMessage.content,
+          scheduleTime: newMessage.scheduledTime,
+          id: createdMessage.id || Date.now() 
+        }
+      ])
+      
+      resetForm()
       toast({
-        title: "Error",
-        description: "Failed to schedule message",
-        variant: "destructive"
+        title: "Success",
+        description: "Message scheduled successfully"
       })
+    } else {
+      const errorData = await response.json()
+      throw new Error(errorData.detail?.[0]?.msg || 'Failed to schedule message')
     }
+  } catch (error) {
+    console.error(error)
+    toast({
+      title: "Error",
+      description: error.message || "Failed to schedule message",
+      variant: "destructive"
+    })
   }
+}
   // Reset Form
   const resetForm = () => {
     setMessageContent('')
@@ -303,18 +363,18 @@ useEffect(() => {
               
               return (
                 <Badge 
-                  key={group}
-                  variant={selectedGroups.includes(group) ? "default" : "outline"}
+                  key={group.id}
+                  variant={selectedGroups.includes(group.name) ? "default" : "outline"}
                   onClick={() => 
                     setSelectedGroups(prev => 
-                      prev.includes(group) 
-                        ? prev.filter(g => g !== group) 
-                        : [...prev, group]
+                      prev.includes(group.name) 
+                        ? prev.filter(g => g !== group.name) 
+                        : [...prev, group.name]
                     )
                   }
                   className={`cursor-pointer transition-all hover:scale-110 ${badgeSize}`}
                 >
-                  {group}
+                  {group.name}
                 </Badge>
               );
             })}
@@ -477,27 +537,11 @@ useEffect(() => {
                           {msg.messageType.toUpperCase()} Message
                         </div>
                         <div className="text-sm text-gray-500 flex items-center space-x-2">
-  <Clock className="w-4 h-4" />
-  <span>
-    {(() => {
-      try {
-        // First, ensure the date is a valid date string
-        const dateObj = new Date(msg.scheduleTime || msg.scheduledTime);
-        
-        // Check if the date is valid
-        if (isNaN(dateObj.getTime())) {
-          return "Invalid Date";
-        }
-        
-        // Use date-fns format if valid
-        return format(dateObj, "PPP p");
-      } catch (error) {
-        console.error("Date formatting error:", error);
-        return "Unknown Date";
-      }
-    })()}
-  </span>
-</div>
+                          <Clock className="w-4 h-4" />
+                          <span>
+                          {safeFormatDate(msg.scheduleTime || msg.scheduledTime)}
+                          </span>
+                        </div>
                         <div className="text-sm text-gray-500 mt-1 flex items-center space-x-2">
                           <UserCheck className="w-4 h-4" />
                           <span>Groups: {msg.groups.join(', ')}</span>
@@ -549,7 +593,7 @@ useEffect(() => {
                   {selectedMessage.messageType.toUpperCase()} Message
                 </Badge>
                 <div className="text-sm text-gray-500">
-                  Scheduled for: {format(new Date(selectedMessage.scheduledTime), "PPP p")}
+                Scheduled for: {safeFormatDate(selectedMessage.scheduleTime || selectedMessage.scheduledTime)}
                 </div>
               </div>
               

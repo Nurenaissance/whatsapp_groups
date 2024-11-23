@@ -12,11 +12,11 @@ const QRScanner = () => {
   const handleGetQRCode = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('https://mocki.io/v1/da9dbc22-8685-4a72-b1cc-052e2949266f');
+      const response = await fetch('http://20.84.153.108:8000/qr_code/get_qr');
       const data = await response.json();
       
-      if (data && data.code) {
-        setQRData(data.code);
+      if (data && data.qr_text &&data.qr_text!=null) {
+        setQRData(data.qr_text);
       } else {
         console.error('Invalid QR code data');
       }
