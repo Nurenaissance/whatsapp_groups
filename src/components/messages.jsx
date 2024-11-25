@@ -190,94 +190,110 @@ useEffect(() => {
   // Handle Message Submission
 // Handle Message Submission
 const handleSubmit = async () => {
+  if (selectedGroups.length === 0) {
+    toast({
+      title: "Group Selection Required",
+      description: "Please select at least one recipient group",
+      variant: "destructive",
+    });
+    return;
+  }
   // Validation
   if (!scheduledTime || (!messageContent && !media)) {
     toast({
       title: "Validation Error",
       description: "Please fill all fields and schedule the message!",
-      variant: "destructive"
-    })
-    return
+      variant: "destructive",
+    });
+    return;
   }
 
   try {
     // First upload media to Azure Blob if media exists
-    let mediaURL = null
+    let mediaURL = null;
     if (media) {
       try {
-        // Assuming you have userId and tenantId available in your component
-        // Replace these with actual values or pass them as props
-        const userId = "default-user"  // Replace with actual userId
-        const tenantId = "default-tenant" // Replace with actual tenantId
-        
+        const userId = "default-user"; // Replace with actual userId
+        const tenantId = "default-tenant"; // Replace with actual tenantId
+
         // Upload to Azure Blob and get URL
-        mediaURL = await uploadToBlob(media, userId, tenantId)
+        mediaURL = await uploadToBlob(media, userId, tenantId);
       } catch (error) {
-        console.error('Error uploading to Azure:', error)
+        console.error("Error uploading to Azure:", error);
         toast({
           title: "Upload Error",
           description: "Failed to upload media file",
-          variant: "destructive"
-        })
-        return
+          variant: "destructive",
+        });
+        return;
       }
     }
 
     // Prepare Message Payload - matching API requirements
     const newMessage = {
-      content: messageContent,
+      // For media types, use mediaCaption as content
+      // For text types, use messageContent
+      content: messageType !== 'text' 
+        ? (mediaCaption || '') 
+        : messageContent,
       scheduledTime: scheduledTime.toISOString(),
       groups: selectedGroups,
       messageType: messageType,
       status: false,
-      media: media ? {
-        url: mediaURL, // Use the Azure Blob URL instead of local URL
-        type: media.type,
-        name: media.name,
-        file_extension: `.${media.name.split('.').pop()}`
-      } : null
-    }
+      media: media
+        ? {
+            url: mediaURL,
+            type: media.type,
+            name: media.name,
+            file_extension: `.${media.name.split(".").pop()}`,
+          }
+        : null,
+    };
 
-    const response = await fetch('https://fastapi2-dsfwetawhjb6gkbz.centralindia-01.azurewebsites.net/schedule_message/create_schedule_message', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(newMessage)
-    })
+    const response = await fetch(
+      "https://fastapi2-dsfwetawhjb6gkbz.centralindia-01.azurewebsites.net/schedule_message/create_schedule_message",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(newMessage),
+      }
+    );
 
     if (response.ok) {
-      const createdMessage = await response.json()
-      
+      const createdMessage = await response.json();
+
       // Update local state with the server-created message
-      setScheduledMessages(prev => [
-        ...prev, 
-        { 
+      setScheduledMessages((prev) => [
+        ...prev,
+        {
           ...newMessage,
           messageContent: newMessage.content,
           scheduleTime: newMessage.scheduledTime,
-          id: createdMessage.id || Date.now() 
-        }
-      ])
-      
-      resetForm()
+          id: createdMessage.id || Date.now(),
+        },
+      ]);
+
+      resetForm();
       toast({
         title: "Success",
-        description: "Message scheduled successfully"
-      })
+        description: "Message scheduled successfully",
+      });
     } else {
-      const errorData = await response.json()
-      throw new Error(errorData.detail?.[0]?.msg || 'Failed to schedule message')
+      const errorData = await response.json();
+      throw new Error(errorData.detail?.[0]?.msg || "Failed to schedule message");
     }
   } catch (error) {
-    console.error(error)
+    console.error(error);
     toast({
       title: "Error",
       description: error.message || "Failed to schedule message",
-      variant: "destructive"
-    })
+      variant: "destructive",
+    });
   }
-}
+};
+
   // Reset Form
   const resetForm = () => {
     setMessageContent('')

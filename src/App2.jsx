@@ -45,7 +45,7 @@ const drawerWidth = 240;
 function App() {
   const theme = useTheme();
   const location = useLocation();
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);  // Changed to false by default
 
   // Mapping the title for display in the AppBar based on the current path
   const pageTitle = {
@@ -75,12 +75,15 @@ function App() {
       {/* AppBar */}
       <AppBar 
         position="fixed" 
+        color="default"  // Changed from default blue to default color (typically black/neutral)
         sx={{ 
           zIndex: theme.zIndex.drawer + 1,
-          transition: theme.transitions.create(['width', 'margin'], {
-            easing: theme.transitions.easing.sharp,
-            duration: theme.transitions.duration.leavingScreen,
-          }),
+  width: `calc(100% - ${open ? drawerWidth : theme.spacing(7)})`,
+  marginLeft: open ? drawerWidth : theme.spacing(7),
+  transition: theme.transitions.create(['width', 'margin'], {
+    easing: theme.transitions.easing.sharp,
+    duration: theme.transitions.duration.enteringScreen,
+  }),
           ...(open && {
             marginLeft: drawerWidth,
             width: `calc(100% - ${drawerWidth}px)`,
@@ -121,31 +124,35 @@ function App() {
         variant="permanent"
         open={open}
         sx={{
-          width: drawerWidth,
+          width: open ? drawerWidth : theme.spacing(7),
           flexShrink: 0,
           '& .MuiDrawer-paper': {
             position: 'relative',
             whiteSpace: 'nowrap',
-            width: drawerWidth,
+            width: open ? drawerWidth : theme.spacing(7),
             transition: theme.transitions.create('width', {
               easing: theme.transitions.easing.sharp,
               duration: theme.transitions.duration.enteringScreen,
             }),
             boxSizing: 'border-box',
-            ...(!open && {
-              overflowX: 'hidden',
-              transition: theme.transitions.create('width', {
-                easing: theme.transitions.easing.sharp,
-                duration: theme.transitions.duration.leavingScreen,
-              }),
-              width: theme.spacing(7),
-              [theme.breakpoints.up('sm')]: {
-                width: theme.spacing(9),
-              },
-            }),
+            overflowX: 'hidden',
           },
         }}
       >
+         <Box
+          display="flex"
+          alignItems="center"
+          justifyContent="center"
+          flexDirection="column"
+          py={2}
+        >
+          <img src="/logo.png" alt="Nuren AI Logo" width={open ? 120 : 40} style={{ transition: 'width 0.3s' }} />
+          {open && (
+            <Typography variant="h6" sx={{ mt: 1 }}>
+              Nuren AI
+            </Typography>
+          )}
+        </Box>
         <Toolbar
           sx={{
             display: 'flex',
@@ -154,9 +161,11 @@ function App() {
             px: [1],
           }}
         >
-          <IconButton onClick={toggleDrawer}>
-            <ChevronLeftIcon />
-          </IconButton>
+          {open && (
+            <IconButton onClick={toggleDrawer}>
+              <ChevronLeftIcon />
+            </IconButton>
+          )}
         </Toolbar>
 
         <List>
@@ -190,15 +199,11 @@ function App() {
         sx={{
           backgroundColor: theme.palette.background.default,
           flexGrow: 1,
-          height: '100vh',
+          height: 'calc(100vh - 64px)',
+          width: `calc(100% - ${open ? drawerWidth : theme.spacing(7)})`,  // ADDED THIS
+          marginTop: '64px',
+          padding: 3,
           overflow: 'auto',
-          p: 3,
-          mt: 8,
-          ml: open ? 0 : theme.spacing(7),
-          transition: theme.transitions.create('margin', {
-            easing: theme.transitions.easing.sharp,
-            duration: theme.transitions.duration.leavingScreen,
-          }),
         }}
       >
         <Routes>

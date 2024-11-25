@@ -12,13 +12,16 @@ import {
   Typography, 
   useTheme,
   IconButton,
-  Tooltip
+  Tooltip,
+  Button
 } from '@mui/material';
 import { 
   Routes, 
   Route, 
   Link, 
-  useLocation 
+  useLocation,
+  Navigate,
+  Outlet
 } from 'react-router-dom';
 
 // Import icons
@@ -30,6 +33,8 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import MenuIcon from '@mui/icons-material/Menu';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 
+import LogoutIcon from '@mui/icons-material/Logout';
+
 // Import components
 import Dashboard from './components/dashboard';
 import Messages from './components/messages';
@@ -39,21 +44,36 @@ import Settings from './components/settings';
 import ManageGroup from './components/managegroup';
 import QRScanner from './components/qrscanner';
 import BotConfiguration from './components/botconfiguration';
+import Login from './login';
+import { useAuth } from './authContext';
 
 const drawerWidth = 240;
 
+// Protected Route Component
+const ProtectedRoute = () => {
+  const { isAuthenticatedGroup } = useAuth();
+  
+  console.log('Is Authenticated:', isAuthenticatedGroup);
+  
+  return isAuthenticatedGroup ? <Outlet /> : <Navigate to="/login" replace />;
+};
+
 function App() {
   const theme = useTheme();
+  const { logout, isAuthenticatedGroup } = useAuth(); // Add isAuthenticatedGroup here
   const location = useLocation();
-  const [open, setOpen] = useState(false);  // Changed to false by default
+  const [open, setOpen] = useState(false);
 
-  // Mapping the title for display in the AppBar based on the current path
   const pageTitle = {
     '/': 'Dashboard',
     '/messages': 'Messages',
     '/groups': 'Groups',
     '/contacts': 'Contacts',
     '/settings': 'Settings',
+  };
+
+  const handleLogout = () => {
+    logout();
   };
 
   const menuItems = [
@@ -68,22 +88,25 @@ function App() {
     setOpen(!open);
   };
 
+  // If not authenticated, show login page
+  if (!isAuthenticatedGroup) {
+    return <Login />;
+  }
+
   return (
     <Box sx={{ display: 'flex' }}>
       <CssBaseline />
-
-      {/* AppBar */}
       <AppBar 
         position="fixed" 
-        color="default"  // Changed from default blue to default color (typically black/neutral)
+        color="default"
         sx={{ 
           zIndex: theme.zIndex.drawer + 1,
-  width: `calc(100% - ${open ? drawerWidth : theme.spacing(7)})`,
-  marginLeft: open ? drawerWidth : theme.spacing(7),
-  transition: theme.transitions.create(['width', 'margin'], {
-    easing: theme.transitions.easing.sharp,
-    duration: theme.transitions.duration.enteringScreen,
-  }),
+          width: `calc(100% - ${open ? drawerWidth : theme.spacing(7)})`,
+          marginLeft: open ? drawerWidth : theme.spacing(7),
+          transition: theme.transitions.create(['width', 'margin'], {
+            easing: theme.transitions.easing.sharp,
+            duration: theme.transitions.duration.enteringScreen,
+          }),
           ...(open && {
             marginLeft: drawerWidth,
             width: `calc(100% - ${drawerWidth}px)`,
@@ -107,19 +130,25 @@ function App() {
           >
             <MenuIcon />
           </IconButton>
-          <Typography 
-            component="h1" 
-            variant="h6" 
-            color="inherit" 
-            noWrap 
+          <Typography
+            component="h1"
+            variant="h6"
+            color="inherit"
+            noWrap
             sx={{ flexGrow: 1 }}
           >
             {pageTitle[location.pathname] || 'Dashboard'}
           </Typography>
+          <Button 
+            color="inherit" 
+            startIcon={<LogoutIcon />} 
+            onClick={handleLogout}
+          >
+            Logout
+          </Button>
         </Toolbar>
       </AppBar>
 
-      {/* Sidebar */}
       <Drawer
         variant="permanent"
         open={open}
@@ -127,9 +156,9 @@ function App() {
           width: open ? drawerWidth : theme.spacing(7),
           flexShrink: 0,
           '& .MuiDrawer-paper': {
-            position: 'relative',
-            whiteSpace: 'nowrap',
             width: open ? drawerWidth : theme.spacing(7),
+            marginTop: '64px',
+            height: 'calc(100vh - 64px)',
             transition: theme.transitions.create('width', {
               easing: theme.transitions.easing.sharp,
               duration: theme.transitions.duration.enteringScreen,
@@ -139,7 +168,7 @@ function App() {
           },
         }}
       >
-         <Box
+        <Box
           display="flex"
           alignItems="center"
           justifyContent="center"
@@ -171,9 +200,9 @@ function App() {
         <List>
           {menuItems.map((item) => (
             <Tooltip key={item.path} title={!open ? item.text : ''} placement="right">
-              <ListItem 
-                button 
-                component={Link} 
+              <ListItem
+                button
+                component={Link}
                 to={item.path}
                 selected={location.pathname === item.path}
                 sx={{
@@ -193,28 +222,33 @@ function App() {
         </List>
       </Drawer>
 
-      {/* Main Content */}
       <Box
         component="main"
         sx={{
           backgroundColor: theme.palette.background.default,
           flexGrow: 1,
           height: 'calc(100vh - 64px)',
-          width: `calc(100% - ${open ? drawerWidth : theme.spacing(7)})`,  // ADDED THIS
+          width: `calc(100% - ${open ? drawerWidth : theme.spacing(7)})`,
           marginTop: '64px',
           padding: 3,
           overflow: 'auto',
         }}
       >
         <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/messages" element={<Messages />} />
-          <Route path="/groups" element={<Groups />} />
-          <Route path="/contacts" element={<Contacts />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="/group/:id" element={<ManageGroup />} />
-          <Route path="/settings/bot-configuration" element={<BotConfiguration />} />
-          <Route path="/settings/qr-scanner" element={<QRScanner />} />
+          <Route path="/login" element={<Login />} />
+          <Route element={<ProtectedRoute />}>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/messages" element={<Messages />} />
+            <Route path="/groups" element={<Groups />} />
+            <Route path="/contacts" element={<Contacts />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/group/:id" element={<ManageGroup />} />
+            <Route path="/settings/bot-configuration" element={<BotConfiguration />} />
+            <Route path="/settings/qr-scanner" element={<QRScanner />} />
+          </Route>
+          
+          {/* Catch-all route */}
+          <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </Box>
     </Box>
