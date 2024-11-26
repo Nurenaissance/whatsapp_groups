@@ -9,4 +9,16 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  server: {
+    proxy: {
+      '/qr_code/get_qr': {
+        target: 'http://20.84.153.108:8000',
+        changeOrigin: true,
+      },
+      '/tracking/start': {
+        target: 'http://20.84.153.108:8000',
+        changeOrigin: true,
+      }
+    }
+  }
 })
