@@ -12,7 +12,7 @@ const QRScanner = () => {
   const handleGetQRCode = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('https://20.84.153.108:8000/qr_code/get_qr');
+      const response = await fetch('http://20.84.153.108:8000/qr_code/get_qr');
       const data = await response.json();
 
       if (data && data.qr_text &&data.qr_text!=null) {
