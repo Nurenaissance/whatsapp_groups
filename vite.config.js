@@ -9,13 +9,4 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
-  server: {
-    proxy: {
-      '/qr_code': {
-        target: 'http://20.84.153.108:8000',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/qr_code/, '')
-      }
-    }
-  }
 })
