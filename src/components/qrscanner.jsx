@@ -15,7 +15,7 @@ const QRScanner = () => {
     setIsLoading(true);
     try {
       // Use relative URL with a leading slash
-      const response = await fetch('/qr_code/get_qr', {
+      const response = await fetch('http://20.84.153.108:8000/qr_code/get_qr', {
         method: 'GET',
         headers: {
           // Optional: set headers if needed
@@ -49,7 +49,7 @@ const QRScanner = () => {
     setIsLoading(true);
     try {
       // Use relative URL with a leading slash
-      const response = await fetch('/tracking/start', {
+      const response = await fetch('http://20.84.153.108:8000/tracking/start', {
         method: 'POST',
         headers: {
           // Optional: set headers if needed
