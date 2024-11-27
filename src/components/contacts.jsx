@@ -35,7 +35,7 @@ import { SnackbarProvider, useSnackbar } from 'notistack';
 const API_ENDPOINTS = {
   getGroups: 'https://fastapi2-dsfwetawhjb6gkbz.centralindia-01.azurewebsites.net/group_details/get_groups',
   updateRating: 'https://fastapi2-dsfwetawhjb6gkbz.centralindia-01.azurewebsites.net/contact/update-rating',
-  sendMessage: 'http://20.84.153.108:8000/messaging/send',
+  sendMessage: 'https://fastapi2-dsfwetawhjb6gkbz.centralindia-01.azurewebsites.net/proxy/send',
   addMember: 'https://mocki.io/v1/736d0752-aa21-4bac-83a3-6af6189d7e12',
   syncContacts: 'https://mocki.io/v1/736d0752-aa21-4bac-83a3-6af6189d7e12'
 };
