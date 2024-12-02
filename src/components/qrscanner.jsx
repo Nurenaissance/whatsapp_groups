@@ -15,7 +15,7 @@ const QRScanner = () => {
     setIsLoading(true);
     try {
       // Use relative URL with a leading slash
-      const response = await fetch('https://whatsappbot.centralus.cloudapp.azure.com/get-qr', {
+      const response = await fetch('https://whatsappbot.centralus.cloudapp.azure.com/qr_code/get_qr', {
         method: 'GET',
         headers: {
           // Optional: set headers if needed
