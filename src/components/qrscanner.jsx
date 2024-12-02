@@ -15,7 +15,7 @@ const QRScanner = () => {
     setIsLoading(true);
     try {
       // Use relative URL with a leading slash
-      const response = await fetch('https://fastapi2-dsfwetawhjb6gkbz.centralindia-01.azurewebsites.net/proxy/get-qr', {
+      const response = await fetch('https://whatsappbot.centralus.cloudapp.azure.com/get-qr', {
         method: 'GET',
         headers: {
           // Optional: set headers if needed
@@ -49,7 +49,7 @@ const QRScanner = () => {
     setIsLoading(true);
     try {
       // Use relative URL with a leading slash
-      const response = await fetch('https://fastapi2-dsfwetawhjb6gkbz.centralindia-01.azurewebsites.net/proxy/tracking/start', {
+      const response = await fetch('https://whatsappbot.centralus.cloudapp.azure.com/tracking/start ', {
         method: 'POST',
         headers: {
           // Optional: set headers if needed
