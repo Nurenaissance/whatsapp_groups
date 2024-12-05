@@ -291,8 +291,31 @@ const ContactsComponent = () => {
   // Error state
   if (error || !groups.length) {
     return (
-      <Box sx={{ p: 3 }}>
-        <Alert severity="error">
+      <Box sx={{ 
+        padding: 3, 
+        maxWidth: 1200, 
+        margin: 'auto', 
+        backgroundColor: theme => theme.palette.background.default 
+      }}>
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          mb: 3 
+        }}>
+          <Typography variant="h4" gutterBottom>
+            Team Contacts
+          </Typography>
+          <Box>
+            <Tooltip title="Sync Contacts">
+              <IconButton color="primary" onClick={handleSyncContacts}>
+                <SyncIcon />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        </Box>
+
+        <Alert severity="error" sx={{ mt: 2 }}>
           {error || 'No groups found. Please check your connection or contact support.'}
         </Alert>
       </Box>
