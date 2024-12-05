@@ -65,10 +65,13 @@ const BotConfiguration = () => {
     try {
       const response = await fetch(`${API_BASE_URL}/bot_details/get_bot_config`);
       if (!response.ok) {
-        throw new Error('Failed to fetch bot configurations');
+        // If no bots are found, set bots to an empty array
+        setBots([]);
+        setIsLoading(false);
+        return;
       }
       const data = await response.json();
-      setBots(data.bots.map((bot, index) => ({
+      const processedBots = data.bots.map((bot, index) => ({
         ...bot,
         logs: bot.logs.map(log => ({
           ...log,
@@ -76,9 +79,12 @@ const BotConfiguration = () => {
           user: log.phone_or_name,
           action: log.action || 'No action'
         }))
-      })));
+      }));
+      setBots(processedBots);
       setIsLoading(false);
     } catch (err) {
+      // If there's an error fetching bots, set bots to an empty array
+      setBots([]);
       setError(err.message);
       setIsLoading(false);
     }
@@ -92,7 +98,6 @@ const BotConfiguration = () => {
   const getCurrentBot = () => {
     return isCreatingNew ? newBotData : bots[selectedBotIndex];
   };
-
   const handleStartNewBot = () => {
     setIsCreatingNew(true);
     setNewBotData(EMPTY_BOT);
@@ -108,7 +113,6 @@ const BotConfiguration = () => {
     const newBotWithId = {
       ...newBotData,
       id: Math.floor(Math.random() * 1000000) // Generate a random ID
-      // You might want to handle ID generation differently based on your backend requirements
     };
 
     setIsSaving(true);
@@ -129,6 +133,9 @@ const BotConfiguration = () => {
       await fetchBots();
       setIsCreatingNew(false);
       setNewBotData(EMPTY_BOT);
+      
+      // Set the newly created bot as the selected bot
+      setSelectedBotIndex(bots.length);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -217,14 +224,14 @@ const BotConfiguration = () => {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      <Card>
+       <Card>
         <CardHeader>
           <CardTitle>Bot Configuration</CardTitle>
           <CardDescription>Manage and configure your AI bots</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex space-x-4">
-            {!isCreatingNew ? (
+            {!isCreatingNew && bots.length > 0 ? (
               <>
                 <Select 
                   value={selectedBotIndex.toString()} 
@@ -262,51 +269,63 @@ const BotConfiguration = () => {
                 </Button>
               </>
             ) : (
+              // Always show create bot options when no bots exist or creating new
               <>
-                <span className="text-lg font-semibold">Creating New Bot</span>
+                <span className="text-lg font-semibold">
+                  {isCreatingNew ? 'Creating New Bot' : 'No Bots Configured'}
+                </span>
                 <Button 
-                  onClick={handleCreateBot} 
+                  onClick={isCreatingNew ? handleCreateBot : handleStartNewBot} 
                   variant="default"
                   disabled={isSaving}
                 >
-                  <Save className="mr-2 h-4 w-4" /> Create Bot
+                  <Save className="mr-2 h-4 w-4" /> 
+                  {isCreatingNew ? 'Create Bot' : 'Create First Bot'}
                 </Button>
-                <Button 
-                  onClick={handleCancelNewBot} 
-                  variant="outline"
-                >
-                  <X className="mr-2 h-4 w-4" /> Cancel
-                </Button>
+                {isCreatingNew && (
+                  <Button 
+                    onClick={handleCancelNewBot} 
+                    variant="outline"
+                  >
+                    <X className="mr-2 h-4 w-4" /> Cancel
+                  </Button>
+                )}
               </>
             )}
           </div>
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Bot Settings</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center space-x-4">
-            <Label>Bot Name</Label>
-            <Input 
-              value={currentBot.name} 
-              onChange={(e) => updateCurrentBot({ name: e.target.value })}
-              placeholder="Enter bot name"
-            />
-          </div>
+     {(bots.length > 0 || isCreatingNew) && (
+        <>
+          {/* Existing cards for bot settings, spam detection, etc. */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Bot Settings</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center space-x-4">
+                <Label>Bot Name</Label>
+                <Input 
+                  value={getCurrentBot().name} 
+                  onChange={(e) => updateCurrentBot({ name: e.target.value })}
+                  placeholder="Enter bot name"
+                />
+              </div>
 
-          <div className="flex items-center space-x-4">
-            <Label>Status</Label>
-            <Switch 
-              checked={currentBot.isBotEnabled}
-              onCheckedChange={(checked) => updateCurrentBot({ isBotEnabled: checked })}
-            />
-            <span>{currentBot.isBotEnabled ? 'Enabled' : 'Disabled'}</span>
-          </div>
-        </CardContent>
-      </Card>
+              <div className="flex items-center space-x-4">
+                <Label>Status</Label>
+                <Switch 
+                  checked={getCurrentBot().isBotEnabled}
+                  onCheckedChange={(checked) => updateCurrentBot({ isBotEnabled: checked })}
+                />
+                <span>{getCurrentBot().isBotEnabled ? 'Enabled' : 'Disabled'}</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Other existing cards (Spam Detection, Spam Action, etc.) */}
+     
 
       <Card>
         <CardHeader>
@@ -445,6 +464,8 @@ const BotConfiguration = () => {
             </Table>
           </CardContent>
         </Card>
+      )}
+         </>
       )}
     </div>
   );
