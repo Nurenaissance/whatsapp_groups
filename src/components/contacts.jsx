@@ -193,8 +193,51 @@ const ContactsComponent = () => {
 
   // Sync contacts
   const handleSyncContacts = async () => {
+    // Create a full-screen loader div
+    const loaderOverlay = document.createElement('div');
+    loaderOverlay.style.position = 'fixed';
+    loaderOverlay.style.top = '0';
+    loaderOverlay.style.left = '0';
+    loaderOverlay.style.width = '100%';
+    loaderOverlay.style.height = '100%';
+    loaderOverlay.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+    loaderOverlay.style.display = 'flex';
+    loaderOverlay.style.justifyContent = 'center';
+    loaderOverlay.style.alignItems = 'center';
+    loaderOverlay.style.zIndex = '9999';
+    
+    // Create a circular progress indicator
+    const loader = document.createElement('div');
+    loader.style.width = '100px';
+    loader.style.height = '100px';
+    loader.style.border = '10px solid #f3f3f3';
+    loader.style.borderTop = '10px solid #3498db';
+    loader.style.borderRadius = '50%';
+    loader.style.animation = 'spin 1s linear infinite';
+    
+    // Add spin keyframes
+    const styleSheet = document.createElement("style")
+    styleSheet.type = "text/css"
+    styleSheet.innerText = `
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+    `;
+    document.head.appendChild(styleSheet);
+    
+    // Append loader to overlay
+    loaderOverlay.appendChild(loader);
+    
+    // Add overlay to body
+    document.body.appendChild(loaderOverlay);
+  
     try {
       const response = await axios.get(API_ENDPOINTS.syncContacts);
+      
+      // Remove loader after request completes
+      document.body.removeChild(loaderOverlay);
+      
       enqueueSnackbar(`Contacts synced at: ${response.data.lastSynced}`, { 
         variant: 'success',
         anchorOrigin: {
@@ -203,7 +246,13 @@ const ContactsComponent = () => {
         },
         autoHideDuration: 3000,
       });
+      
+      // Refresh the page after successful sync
+      window.location.reload();
     } catch (err) {
+      // Remove loader in case of error
+      document.body.removeChild(loaderOverlay);
+      
       enqueueSnackbar('Failed to sync contacts', { 
         variant: 'error',
         anchorOrigin: {
