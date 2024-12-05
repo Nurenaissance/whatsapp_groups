@@ -55,10 +55,29 @@ const ContactsComponent = () => {
       try {
         setLoading(true);
         const response = await axios.get(API_ENDPOINTS.getGroups);
-        setGroups(response.data.groups || []);
+        
+        // Validate response data
+        const fetchedGroups = response.data?.groups || [];
+        const sanitizedGroups = fetchedGroups.map(group => ({
+          ...group,
+          name: group.name || 'Unnamed Group',
+          description: group.description || 'No description',
+          members: (group.members || []).map(member => ({
+            ...member,
+            name: member.name || 'Unknown Member',
+            email: member.email || 'No email',
+            role: member.role || 'member',
+            rating: member.rating || 0,
+            id: member.id || crypto.randomUUID() // Ensure unique ID
+          }))
+        }));
+
+        setGroups(sanitizedGroups);
+        setSelectedGroupIndex(0); // Reset to first group
         setLoading(false);
       } catch (err) {
-        setError('Failed to fetch groups');
+        console.error('Fetch groups error:', err);
+        setError('Failed to fetch groups: ' + (err.message || 'Unknown error'));
         setLoading(false);
         enqueueSnackbar('Failed to fetch groups', { 
           variant: 'error',
@@ -78,55 +97,47 @@ const ContactsComponent = () => {
   const handleRatingChange = async (groupIndex, memberId, newRating) => {
     try {
       const group = groups[groupIndex];
-      if (!group) return;
+      if (!group) {
+        enqueueSnackbar('Invalid group selection', { variant: 'error' });
+        return;
+      }
 
-      // Find the member in the original group data to ensure we have the correct ID
       const member = group.members.find(m => m.id === memberId);
       if (!member) {
-        console.error('Member not found:', memberId);
+        enqueueSnackbar('Member not found', { variant: 'error' });
         return;
       }
 
       const ratingData = {
         group_id: group.id,
-        member_id: member.id, // Using the original member ID from the API
+        member_id: member.id,
         rating: newRating
       };
 
       await axios.put(API_ENDPOINTS.updateRating, ratingData);
       
-      const updatedGroups = [...groups];
-      const memberIndex = updatedGroups[groupIndex].members.findIndex(m => m.id === memberId);
+      const updatedGroups = groups.map((g, index) => 
+        index === groupIndex 
+          ? {
+              ...g,
+              members: g.members.map(m => 
+                m.id === memberId 
+                  ? { ...m, rating: newRating } 
+                  : m
+              )
+            }
+          : g
+      );
       
-      if (memberIndex !== -1) {
-        updatedGroups[groupIndex].members[memberIndex] = {
-          ...updatedGroups[groupIndex].members[memberIndex],
-          rating: newRating
-        };
-        
-        setGroups(updatedGroups);
+      setGroups(updatedGroups);
 
-        enqueueSnackbar('Rating updated successfully', { 
-          variant: 'success',
-          anchorOrigin: {
-            vertical: 'top',
-            horizontal: 'right',
-          },
-          autoHideDuration: 2000,
-        });
-      }
+      enqueueSnackbar('Rating updated successfully', { variant: 'success' });
     } catch (err) {
       console.error('Rating update error:', err);
-      enqueueSnackbar('Failed to update rating', { 
-        variant: 'error',
-        anchorOrigin: {
-          vertical: 'top',
-          horizontal: 'right',
-        },
-        autoHideDuration: 3000,
-      });
+      enqueueSnackbar('Failed to update rating', { variant: 'error' });
     }
   };
+
   // Handle sending a message
   const handleSendMessage = async (memberId, memberName) => {
     const message = messages[memberId];
@@ -271,24 +282,19 @@ const ContactsComponent = () => {
   // Removed duplicate loading/error handling code
   if (loading) {
     return (
-      <Box 
-        sx={{ 
-          display: 'flex', 
-          justifyContent: 'center', 
-          alignItems: 'center', 
-          height: '100vh' 
-        }}
-      >
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
         <CircularProgress />
       </Box>
     );
   }
 
   // Error state
-  if (error) {
+  if (error || !groups.length) {
     return (
       <Box sx={{ p: 3 }}>
-        <Alert severity="error">{error}</Alert>
+        <Alert severity="error">
+          {error || 'No groups found. Please check your connection or contact support.'}
+        </Alert>
       </Box>
     );
   }

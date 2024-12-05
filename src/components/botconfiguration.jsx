@@ -32,15 +32,23 @@ import { Trash2, PlusCircle, Save, X } from "lucide-react";
 const API_BASE_URL = 'https://fastapi2-dsfwetawhjb6gkbz.centralindia-01.azurewebsites.net';
 
 const EMPTY_BOT = {
-  id: '', // Added ID field
+  id: '',
   name: '',
   isBotEnabled: true,
   spamKeywords: [],
   messageLimit: 3,
   replyMessage: '',
-  spamAction: 'Warn',
+  spamAction: 'Reply',
+  aiSpamDetection: false,
+  aiSpamActionEnabled: false,
+  aiSpamActionPrompt: '',
   logs: []
 };
+
+const SPAM_ACTIONS = [
+  { value: 'Reply', label: 'Reply with Message' },
+  { value: 'Delete', label: 'Delete Message' }
+];
 
 const BotConfiguration = () => {
   const [bots, setBots] = useState([]);
@@ -168,7 +176,6 @@ const BotConfiguration = () => {
       setIsSaving(false);
     }
   };
-
   const updateCurrentBot = (updates) => {
     if (isCreatingNew) {
       setNewBotData(prev => ({ ...prev, ...updates }));
@@ -182,7 +189,6 @@ const BotConfiguration = () => {
       );
     }
   };
-
   const handleAddKeyword = () => {
     const currentBot = getCurrentBot();
     if (newKeyword && !currentBot.spamKeywords.includes(newKeyword)) {
@@ -307,6 +313,14 @@ const BotConfiguration = () => {
           <CardTitle>Spam Detection</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="flex items-center space-x-4">
+            <Label>AI-Powered Spam Detection</Label>
+            <Switch 
+              checked={currentBot.aiSpamDetection}
+              onCheckedChange={(checked) => updateCurrentBot({ aiSpamDetection: checked })}
+            />
+            <span>{currentBot.aiSpamDetection ? 'Enabled' : 'Disabled'}</span>
+          </div>
           <div className="flex space-x-2">
             <Input 
               placeholder="Add spam keyword" 
@@ -335,15 +349,12 @@ const BotConfiguration = () => {
             ))}
           </div>
 
-          <div className="flex items-center space-x-4">
-            <Label>Max Messages per Minute</Label>
-            <Input 
-              type="number" 
-              value={currentBot.messageLimit} 
-              onChange={(e) => updateCurrentBot({ messageLimit: Number(e.target.value) })}
-              className="w-24"
-            />
-          </div>
+          {currentBot.aiSpamDetection && (
+            <div className="mt-4 text-sm text-muted-foreground">
+              AI Spam Detection will use advanced language understanding to detect spam 
+              beyond exact keyword matches.
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -353,13 +364,58 @@ const BotConfiguration = () => {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center space-x-4">
-            <Label>Reply Message</Label>
-            <Textarea
-              value={currentBot.replyMessage || ''}
-              onChange={(e) => updateCurrentBot({ replyMessage: e.target.value })}
-              placeholder="Enter reply message for spam detection"
-            />
+            <Label>Spam Action Type</Label>
+            <Select 
+              value={currentBot.spamAction}
+              onValueChange={(value) => updateCurrentBot({ spamAction: value })}
+            >
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Select Action" />
+              </SelectTrigger>
+              <SelectContent>
+                {SPAM_ACTIONS.map((action) => (
+                  <SelectItem key={action.value} value={action.value}>
+                    {action.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
+
+          <div className="flex items-center space-x-4">
+            <Label>AI-Powered Spam Action</Label>
+            <Switch 
+              checked={currentBot.aiSpamActionEnabled}
+              onCheckedChange={(checked) => updateCurrentBot({ aiSpamActionEnabled: checked })}
+            />
+            <span>{currentBot.aiSpamActionEnabled ? 'Enabled' : 'Disabled'}</span>
+          </div>
+
+          {currentBot.spamAction === 'Reply' && (
+            <div className="flex items-center space-x-4">
+              <Label>Reply Message</Label>
+              <Textarea
+                value={currentBot.replyMessage || ''}
+                onChange={(e) => updateCurrentBot({ replyMessage: e.target.value })}
+                placeholder="Enter reply message for spam detection"
+              />
+            </div>
+          )}
+
+          {currentBot.aiSpamActionEnabled && (
+            <div className="space-y-2">
+              <Label>AI Action Prompt</Label>
+              <Textarea
+                value={currentBot.aiSpamActionPrompt || ''}
+                onChange={(e) => updateCurrentBot({ aiSpamActionPrompt: e.target.value })}
+                placeholder="Describe how the AI should handle spam messages (e.g., 'Respond with a polite warning that escalates based on repeat offenses')"
+              />
+              <div className="text-sm text-muted-foreground">
+                When AI Spam Action is enabled, the bot will use this prompt to dynamically 
+                generate responses or determine actions based on the context and severity of spam.
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
