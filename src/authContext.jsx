@@ -16,6 +16,9 @@ export const AuthProvider = ({ children }) => {
   const login = (userData) => {
     setIsAuthenticatedGroup(true);
     setUserDetails(userData);
+    // Store authentication state and user details in localStorage
+    localStorage.setItem("isAuthenticatedGroup", "true");
+    localStorage.setItem("userDetails", JSON.stringify(userData));
     // Store tenant ID in localStorage
     localStorage.setItem("tenantId", userData.tenantId);
   };
@@ -51,3 +54,5 @@ export const useAuth = () => {
   }
   return context;
 };
+
+export default AuthContext;
