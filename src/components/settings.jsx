@@ -12,13 +12,13 @@ const Settings = () => {
       icon: Bot,
       title: "Bot Configuration",
       description: "Configure bot settings to manage spam messages and automate tasks in groups.",
-      action: () => navigate('/settings/bot-configuration')
+      action: () => navigate('./bot-configuration')
     },
     {
       icon: QrCode,
       title: "QR Code Scanner",
       description: "Scan the QR code to instantly connect your WhatsApp.",
-      action: () => navigate('/settings/qr-scanner')
+      action: () => navigate('./qr-scanner')
     }
   ];
 

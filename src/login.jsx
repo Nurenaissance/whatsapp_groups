@@ -30,14 +30,14 @@ const Login = () => {
         };
 
         login(userData);
-        navigate('../');
+        // Navigate to the tenant-specific messages page as the default home
+        navigate(`/${userData.tenantId}/home`);
       }
     } catch (error) {
       setError('Invalid credentials. Please try again.');
       setIsSubmitting(false);
     }
   };
-
   return (
     <div className="min-h-screen min-w-full flex items-center justify-center bg-gray-100 absolute inset-0">
       <div className="bg-white p-8 rounded-xl shadow-2xl w-96">

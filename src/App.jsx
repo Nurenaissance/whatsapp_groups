@@ -15,14 +15,18 @@ import {
   Tooltip,
   Button
 } from '@mui/material';
+
 import { 
   Routes, 
   Route, 
   Link, 
   useLocation,
   Navigate,
-  Outlet
+  Outlet,
+  useParams
 } from 'react-router-dom';
+import { useAuth } from './authContext';
+
 
 // Import icons
 import DashboardIcon from '@mui/icons-material/Dashboard';
@@ -45,31 +49,27 @@ import ManageGroup from './components/managegroup';
 import QRScanner from './components/qrscanner';
 import BotConfiguration from './components/botconfiguration';
 import Login from './login';
-import { useAuth } from './authContext';
+
 
 const drawerWidth = 240;
-
-// Protected Route Component
-const ProtectedRoute = () => {
-  const { isAuthenticatedGroup } = useAuth();
-  
-  console.log('Is Authenticated:', isAuthenticatedGroup);
-  
-  return isAuthenticatedGroup ? <Outlet /> : <Navigate to="/login" replace />;
+const getTenantIdFromUrl = () => {
+  const pathArray = window.location.pathname.split('/');
+  return pathArray.length >= 2 ? pathArray[1] : null;
 };
+// Protected Route Component
 
 function App() {
   const theme = useTheme();
   const { logout, isAuthenticatedGroup } = useAuth(); // Add isAuthenticatedGroup here
   const location = useLocation();
   const [open, setOpen] = useState(false);
-
+  const tenant_id = getTenantIdFromUrl();
   const pageTitle = {
-    '/': 'Dashboard',
-    '/messages': 'Messages',
-    '/groups': 'Groups',
-    '/contacts': 'Contacts',
-    '/settings': 'Settings',
+    '/:tenant_id/home': 'Dashboard',
+    '/:tenant_id/messages': 'Messages',
+    '/:tenant_id/groups': 'Groups',
+    '/:tenant_id/contacts': 'Contacts',
+    '/:tenant_id/settings': 'Settings',
   };
 
   const handleLogout = () => {
@@ -77,11 +77,11 @@ function App() {
   };
 
   const menuItems = [
-    { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
-    { text: 'Messages', icon: <MessageIcon />, path: '/messages' },
-    { text: 'Groups', icon: <GroupIcon />, path: '/groups' },
-    { text: 'Contacts', icon: <ContactsIcon />, path: '/contacts' },
-    { text: 'Settings', icon: <SettingsIcon />, path: '/settings' },
+    { text: 'Dashboard', icon: <DashboardIcon />, path: `/${tenant_id}/home` },
+    { text: 'Messages', icon: <MessageIcon />, path: `/${tenant_id}/messages` },
+    { text: 'Groups', icon: <GroupIcon />, path: `/${tenant_id}/groups` },
+    { text: 'Contacts', icon: <ContactsIcon />, path: `/${tenant_id}/contacts` },
+    { text: 'Settings', icon: <SettingsIcon />, path: `/${tenant_id}/settings` },
   ];
 
   const toggleDrawer = () => {
@@ -89,10 +89,7 @@ function App() {
   };
 
   // If not authenticated, show login page
-  if (!isAuthenticatedGroup) {
-    return <Login />;
-  }
-
+  
   return (
     <Box sx={{ display: 'flex' }}>
       <CssBaseline />
@@ -234,20 +231,22 @@ function App() {
           overflow: 'auto',
         }}
       >
-        <Routes>
+           <Routes>
           <Route path="/login" element={<Login />} />
-          <Route element={<ProtectedRoute />}>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/messages" element={<Messages />} />
-            <Route path="/groups" element={<Groups />} />
-            <Route path="/contacts" element={<Contacts />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/group/:id" element={<ManageGroup />} />
-            <Route path="/settings/bot-configuration" element={<BotConfiguration />} />
-            <Route path="/settings/qr-scanner" element={<QRScanner />} />
+          
+          <Route>
+            <Route path="/:tenant_id/home" element={<Dashboard />} />
+            <Route path="/:tenant_id/messages" element={<Messages />} />
+            <Route path="/:tenant_id/groups" element={<Groups />} />
+            <Route path="/:tenant_id/contacts" element={<Contacts />} />
+            <Route path="/:tenant_id/settings" element={<Settings />} />
+            <Route path="/:tenant_id/groups/:id" element={<ManageGroup />} />
+            <Route path="/:tenant_id/settings/bot-configuration" element={<BotConfiguration />} />
+            <Route path="/:tenant_id/settings/qr-scanner" element={<QRScanner />} />
           </Route>
           
-          {/* Catch-all route */}
+          {/* Redirect to login if no tenant_id provided */}
+          <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </Box>

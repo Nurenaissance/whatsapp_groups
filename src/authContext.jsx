@@ -13,27 +13,20 @@ export const AuthProvider = ({ children }) => {
     return storedDetails ? JSON.parse(storedDetails) : null;
   });
 
-  useEffect(() => {
-    localStorage.setItem("isAuthenticatedGroup", isAuthenticatedGroup);
-  }, [isAuthenticatedGroup]);
-
-  useEffect(() => {
-    if (userDetails) {
-      localStorage.setItem("userDetails", JSON.stringify(userDetails));
-    } else {
-      localStorage.removeItem("userDetails");
-    }
-  }, [userDetails]);
-
   const login = (userData) => {
     setIsAuthenticatedGroup(true);
     setUserDetails(userData);
+    // Store tenant ID in localStorage
+    localStorage.setItem("tenantId", userData.tenantId);
   };
 
   const logout = () => {
     setIsAuthenticatedGroup(false);
     setUserDetails(null);
-    localStorage.clear(); // Optional: clear all local storage
+    // Clear specific authentication-related items
+    localStorage.removeItem("isAuthenticatedGroup");
+    localStorage.removeItem("userDetails");
+    localStorage.removeItem("tenantId");
   };
 
   return (
@@ -42,7 +35,8 @@ export const AuthProvider = ({ children }) => {
         isAuthenticatedGroup, 
         userDetails, 
         login, 
-        logout 
+        logout,
+        tenantId: localStorage.getItem("tenantId") // Add this
       }}
     >
       {children}

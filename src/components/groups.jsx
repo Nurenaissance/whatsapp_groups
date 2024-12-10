@@ -21,7 +21,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-
+import axiosInstance from './api';
 const Groups = () => {
   const navigate = useNavigate();
   const [groups, setGroups] = useState([]);
@@ -44,7 +44,7 @@ const Groups = () => {
     const fetchGroupsAndMembers = async () => {
       try {
         // Fetch groups
-        const groupsResponse = await axios.get('https://fastapi2-dsfwetawhjb6gkbz.centralindia-01.azurewebsites.net/group_details/get_groups');
+        const groupsResponse = await axiosInstance.get('/group_details/get_groups');
         const fetchedGroups = groupsResponse.data.groups.map(group => ({
           id: group.id,
           name: group.name,
@@ -137,7 +137,7 @@ const Groups = () => {
   };
 
   const handleManageGroup = (group) => {
-    navigate(`/group/${group.id}`);
+    navigate(`./${group.id}`);
   };
 
   if (isLoading) {

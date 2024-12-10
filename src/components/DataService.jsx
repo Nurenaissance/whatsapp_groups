@@ -1,7 +1,7 @@
-import axios from 'axios';
 
+import axiosInstance from './api';
 class DataService {
-  static BASE_URL = 'https://fastapi2-dsfwetawhjb6gkbz.centralindia-01.azurewebsites.net/dashboard';
+  static BASE_URL = '/dashboard';
   static _cachedData = null;
 
   static async fetchAllData() {
@@ -10,7 +10,7 @@ class DataService {
     }
 
     try {
-      const response = await axios.get(this.BASE_URL);
+      const response = await axiosInstance.get(this.BASE_URL);
       const formattedData = this._formatDashboardData(response.data);
       this._cachedData = formattedData;
       return formattedData;

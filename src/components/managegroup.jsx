@@ -24,6 +24,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import axiosInstance from './api';
 
 const ManageGroup = () => {
   const { id } = useParams();
@@ -31,7 +32,7 @@ const ManageGroup = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const BASE_URL = 'https://fastapi2-dsfwetawhjb6gkbz.centralindia-01.azurewebsites.net';
+  
 
   // Fetch group data function
   const fetchGroupData = async () => {
@@ -40,12 +41,12 @@ const ManageGroup = () => {
       setError(null);
 
       // Fetch group details and activity
-      const groupDetailsResponse = await axios.get(
-        `${BASE_URL}/group_details/get_group_details/${id}`
+      const groupDetailsResponse = await axiosInstance.get(
+        `/group_details/get_group_details/${id}`
       );
 
-      const groupActivityResponse = await axios.get(
-        `${BASE_URL}/group_details/get_group_activity/${groupDetailsResponse.data.data.group_name.toLowerCase()}`
+      const groupActivityResponse = await axiosInstance.get(
+        `/group_details/get_group_activity/${groupDetailsResponse.data.data.group_name.toLowerCase()}`
       );
 
       // Process member data

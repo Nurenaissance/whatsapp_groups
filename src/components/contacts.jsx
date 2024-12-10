@@ -30,11 +30,11 @@ import {
   Warning as WarningIcon
 } from '@mui/icons-material';
 import { SnackbarProvider, useSnackbar } from 'notistack';
-
+import axiosInstance from './api';
 // Dummy Endpoints
 const API_ENDPOINTS = {
-  getGroups: 'https://fastapi2-dsfwetawhjb6gkbz.centralindia-01.azurewebsites.net/group_details/get_groups',
-  updateRating: 'https://fastapi2-dsfwetawhjb6gkbz.centralindia-01.azurewebsites.net/contact/update-rating',
+  getGroups: '/group_details/get_groups',
+  updateRating: '/contact/update-rating',
   sendMessage: 'https://whatsappbot.centralus.cloudapp.azure.com/messaging/send',
   addMember: 'https://mocki.io/v1/736d0752-aa21-4bac-83a3-6af6189d7e12',
   syncContacts: 'https://whatsappbot.centralus.cloudapp.azure.com/group_details/fetch_groups'
@@ -51,44 +51,45 @@ const ContactsComponent = () => {
 
   // Fetch groups on component mount
   useEffect(() => {
-    const fetchGroups = async () => {
-      try {
-        setLoading(true);
-        const response = await axios.get(API_ENDPOINTS.getGroups);
-        
-        // Validate response data
-        const fetchedGroups = response.data?.groups || [];
-        const sanitizedGroups = fetchedGroups.map(group => ({
-          ...group,
-          name: group.name || 'Unnamed Group',
-          description: group.description || 'No description',
-          members: (group.members || []).map(member => ({
-            ...member,
-            name: member.name || 'Unknown Member',
-            email: member.email || 'No email',
-            role: member.role || 'member',
-            rating: member.rating || 0,
-            id: member.id || crypto.randomUUID() // Ensure unique ID
-          }))
-        }));
+  
+const fetchGroups = async () => {
+  try {
+    setLoading(true);
+    const response = await axiosInstance.get(API_ENDPOINTS.getGroups);
+    
+    // Validate response data
+    const fetchedGroups = response.data?.groups || [];
+    const sanitizedGroups = fetchedGroups.map(group => ({
+      ...group,
+      name: group.name || 'Unnamed Group',
+      description: group.description || 'No description',
+      members: (group.members || []).map(member => ({
+        ...member,
+        name: member.name || 'Unknown Member',
+        email: member.email || 'No email',
+        role: member.role || 'member',
+        rating: member.rating || 0,
+        id: member.id || crypto.randomUUID() // Ensure unique ID
+      }))
+    }));
 
-        setGroups(sanitizedGroups);
-        setSelectedGroupIndex(0); // Reset to first group
-        setLoading(false);
-      } catch (err) {
-        console.error('Fetch groups error:', err);
-        setError('Failed to fetch groups: ' + (err.message || 'Unknown error'));
-        setLoading(false);
-        enqueueSnackbar('Failed to fetch groups', { 
-          variant: 'error',
-          anchorOrigin: {
-            vertical: 'top',
-            horizontal: 'right',
-          },
-          autoHideDuration: 3000,
-        });
-      }
-    };
+    setGroups(sanitizedGroups);
+    setSelectedGroupIndex(0); // Reset to first group
+    setLoading(false);
+  } catch (err) {
+    console.error('Fetch groups error:', err);
+    setError('Failed to fetch groups: ' + (err.response?.data?.message || err.message || 'Unknown error'));
+    setLoading(false);
+    enqueueSnackbar('Failed to fetch groups', { 
+      variant: 'error',
+      anchorOrigin: {
+        vertical: 'top',
+        horizontal: 'right',
+      },
+      autoHideDuration: 3000,
+    });
+  }
+};
     
     fetchGroups();
   }, [enqueueSnackbar]);
@@ -114,7 +115,7 @@ const ContactsComponent = () => {
         rating: newRating
       };
 
-      await axios.put(API_ENDPOINTS.updateRating, ratingData);
+      await axiosInstance.put(API_ENDPOINTS.updateRating, ratingData);
       
       const updatedGroups = groups.map((g, index) => 
         index === groupIndex 

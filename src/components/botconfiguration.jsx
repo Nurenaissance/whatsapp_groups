@@ -44,7 +44,7 @@ const EMPTY_BOT = {
   aiSpamActionPrompt: '',
   logs: []
 };
-
+import axiosInstance from './api';
 const SPAM_ACTIONS = [
   { value: 'Reply', label: 'Reply with Message' },
   { value: 'Delete', label: 'Delete Message' }
@@ -63,15 +63,16 @@ const BotConfiguration = () => {
   // Fetch bots from endpoint
   const fetchBots = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/bot_details/get_bot_config`);
-      if (!response.ok) {
-        // If no bots are found, set bots to an empty array
+      const response = await axiosInstance.get('/bot_details/get_bot_config');
+      
+      // If no bots are found, response.data might be empty
+      if (!response.data || response.data.bots.length === 0) {
         setBots([]);
         setIsLoading(false);
         return;
       }
-      const data = await response.json();
-      const processedBots = data.bots.map((bot, index) => ({
+  
+      const processedBots = response.data.bots.map((bot, index) => ({
         ...bot,
         logs: bot.logs.map(log => ({
           ...log,
@@ -80,12 +81,13 @@ const BotConfiguration = () => {
           action: log.action || 'No action'
         }))
       }));
+  
       setBots(processedBots);
       setIsLoading(false);
     } catch (err) {
       // If there's an error fetching bots, set bots to an empty array
       setBots([]);
-      setError(err.message);
+      setError(err.response?.data?.message || err.message);
       setIsLoading(false);
     }
   };

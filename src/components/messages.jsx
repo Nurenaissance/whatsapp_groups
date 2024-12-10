@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { format } from "date-fns"
 import { parseISO, isValid } from "date-fns"
 import uploadToBlob from "./azureUpload.jsx";
+import axiosInstance from './api.jsx';
 import { 
   Calendar as CalendarIcon, 
   FileText, 
@@ -51,7 +52,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { toast } from "@/hooks/use-toast"
 import TimePicker from './timepicker'
-const GROUPS_ENDPOINT = "https://fastapi2-dsfwetawhjb6gkbz.centralindia-01.azurewebsites.net/group_details/get_groups";
+const GROUPS_ENDPOINT = "/group_details/get_groups";
 const safeFormatDate = (dateString) => {
   try {
     // First try parsing as ISO string
@@ -118,8 +119,7 @@ const Messages = () => {
   useEffect(() => {
     const fetchGroups = async () => {
       try {
-        const response = await fetch(GROUPS_ENDPOINT);
-        const data = await response.json();
+        const { data } = await axiosInstance.get(GROUPS_ENDPOINT);
 
         // Extract group names from the correct structure
         // Each group has an id, name, description, and members
@@ -146,37 +146,31 @@ const Messages = () => {
 useEffect(() => {
   const fetchScheduledMessages = async () => {
     try {
-      const response = await fetch('https://fastapi2-dsfwetawhjb6gkbz.centralindia-01.azurewebsites.net/schedule_message/get_schedule_messages')
-      
-      if (!response.ok) {
-        throw new Error('Network response was not ok');
-      }
-      
-      const data = await response.json()
+      const response = await axiosInstance.get('/schedule_message/get_schedule_messages');
       
       // Debugging: log the entire response
-      console.log('Fetched messages:', data);
-
+      console.log('Fetched messages:', response.data);
+  
       // Ensure we're extracting the correct array of messages
-      const messagesArray = Array.isArray(data) ? data : 
-        (data.scheduled_messages && Array.isArray(data.scheduled_messages) ? data.scheduled_messages : 
-        (data.messages && Array.isArray(data.messages) ? data.messages : []))
+      const messagesArray = Array.isArray(response.data) ? response.data : 
+        (response.data.scheduled_messages && Array.isArray(response.data.scheduled_messages) ? response.data.scheduled_messages : 
+        (response.data.messages && Array.isArray(response.data.messages) ? response.data.messages : []))
       
       // Sort messages by scheduled time (most recent first)
       const sortedMessages = messagesArray.sort((a, b) => 
         new Date(b.scheduleTime) - new Date(a.scheduleTime)
       );
-
+  
       setScheduledMessages(sortedMessages)
     } catch (error) {
-      console.error("Fetch error:", error)
+      console.error("Fetch error:", error);
       toast({
         title: "Error",
         description: "Failed to fetch scheduled messages",
         variant: "destructive"
       })
     }
-  }
+  };
 
   fetchScheduledMessages()
   
@@ -250,16 +244,7 @@ const handleSubmit = async () => {
         : null,
     };
 
-    const response = await fetch(
-      "https://fastapi2-dsfwetawhjb6gkbz.centralindia-01.azurewebsites.net/schedule_message/create_schedule_message",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(newMessage),
-      }
-    );
+    const response = await axiosInstance.post('/schedule_message/create_schedule_message', newMessage);
 
     if (response.ok) {
       const createdMessage = await response.json();
@@ -307,44 +292,36 @@ const handleSubmit = async () => {
   // Delete Scheduled Message
   const handleDeleteScheduledMessage = async (id) => {
     try {
-      const response = await fetch(`https://fastapi2-dsfwetawhjb6gkbz.centralindia-01.azurewebsites.net/schedule_message/delete_scheduled_message/${id}`, {
-        method: 'DELETE'
+      // Delete the scheduled message
+      const response = await axiosInstance.delete(`/schedule_message/delete_scheduled_message/${id}/`);
+  
+      // Fetch updated scheduled messages
+      const fetchResponse = await axiosInstance.get('/schedule_message/get_schedule_messages');
+      
+      // Ensure we're extracting the correct array of messages
+      const messagesArray = Array.isArray(fetchResponse.data) ? fetchResponse.data : 
+        (fetchResponse.data.scheduled_messages && Array.isArray(fetchResponse.data.scheduled_messages) ? fetchResponse.data.scheduled_messages : 
+        (fetchResponse.data.messages && Array.isArray(fetchResponse.data.messages) ? fetchResponse.data.messages : []))
+      
+      // Sort messages by scheduled time (most recent first)
+      const sortedMessages = messagesArray.sort((a, b) => 
+        new Date(b.scheduleTime) - new Date(a.scheduleTime)
+      );
+  
+      setScheduledMessages(sortedMessages)
+  
+      // Enhanced toast with more detail
+      toast({
+        title: "Message Deleted",
+        description: "Your scheduled message has been successfully removed.",
+        duration: 3000, // Show for 3 seconds
+        className: "bg-red-500 text-white", // Custom styling to make it stand out
+        icon: <Trash2 className="w-5 h-5 text-white" />, // Add a delete icon
       })
-  
-      const result = await response.json()
-  
-      if (response.ok) {
-        // Immediately refetch scheduled messages
-        const fetchResponse = await fetch('https://fastapi2-dsfwetawhjb6gkbz.centralindia-01.azurewebsites.net/schedule_message/get_schedule_messages')
-        const data = await fetchResponse.json()
-        
-        // Ensure we're extracting the correct array of messages
-        const messagesArray = Array.isArray(data) ? data : 
-          (data.scheduled_messages && Array.isArray(data.scheduled_messages) ? data.scheduled_messages : 
-          (data.messages && Array.isArray(data.messages) ? data.messages : []))
-        
-        // Sort messages by scheduled time (most recent first)
-        const sortedMessages = messagesArray.sort((a, b) => 
-          new Date(b.scheduleTime) - new Date(a.scheduleTime)
-        );
-  
-        setScheduledMessages(sortedMessages)
-  
-        // Enhanced toast with more detail
-        toast({
-          title: "Message Deleted",
-          description: "Your scheduled message has been successfully removed.",
-          duration: 3000, // Show for 3 seconds
-          className: "bg-red-500 text-white", // Custom styling to make it stand out
-          icon: <Trash2 className="w-5 h-5 text-white" />, // Add a delete icon
-        })
-      } else {
-        throw new Error(result.detail || 'Failed to delete message')
-      }
     } catch (error) {
       toast({
         title: "Deletion Failed",
-        description: error.message || "Unable to delete the scheduled message",
+        description: error.response?.data?.detail || error.message || "Unable to delete the scheduled message",
         variant: "destructive",
         duration: 2000
       })
