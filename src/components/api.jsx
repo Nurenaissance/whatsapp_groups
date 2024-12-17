@@ -1,7 +1,7 @@
 
 import axios from 'axios';
 
-export const mainURL = "http://localhost:8000"
+export const mainURL = "https://fastapi2-dsfwetawhjb6gkbz.centralindia-01.azurewebsites.net"
 // export const fastURL = "http://localhost:8000"
 //export const fastURL = "https://fastapione-gue2c5ecc9c4b8hy.centralindia-01.azurewebsites.net"
 // export const djangoURL = "http://localhost:8001"
