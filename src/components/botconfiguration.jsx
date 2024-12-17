@@ -42,7 +42,6 @@ const EMPTY_BOT = {
   aiSpamDetection: false,
   aiSpamActionEnabled: false,
   aiSpamActionPrompt: '',
-  logs: []
 };
 import axiosInstance from './api';
 const SPAM_ACTIONS = [
@@ -98,7 +97,16 @@ const BotConfiguration = () => {
 
   // Helper function to get currently selected bot
   const getCurrentBot = () => {
-    return isCreatingNew ? newBotData : bots[selectedBotIndex];
+    // If creating a new bot and no data exists, return the empty bot template
+    if (isCreatingNew) {
+      return {
+        ...EMPTY_BOT,
+        ...newBotData // Merge any existing new bot data
+      };
+    }
+  
+    // Otherwise, return the selected bot from the list
+    return bots[selectedBotIndex] || EMPTY_BOT;
   };
   const handleStartNewBot = () => {
     setIsCreatingNew(true);
@@ -111,27 +119,36 @@ const BotConfiguration = () => {
   };
 
   const handleCreateBot = async () => {
-    // Generate a temporary ID for the new bot
-    const newBotWithId = {
-      ...newBotData,
-      id: Math.floor(Math.random() * 1000000) // Generate a random ID
+    // Validate that the bot name is not empty
+    if (!newBotData.name || newBotData.name.trim() === '') {
+      setError('Bot name is required');
+      return;
+    }
+  
+    // Prepare the bot data, removing any keys with undefined or null values
+    const newBotPayload = {
+      name: newBotData.name,
+      isBotEnabled: newBotData.isBotEnabled,
+      spamKeywords: newBotData.spamKeywords,
+      messageLimit: newBotData.messageLimit,
+      replyMessage: newBotData.replyMessage,
+      spamAction: newBotData.spamAction,
+      aidetection: newBotData.aiSpamDetection,
+      aireply: newBotData.aiSpamActionEnabled,
+      aiSpamActionPrompt: newBotData.aiSpamActionPrompt
     };
-
+  
     setIsSaving(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/bot_details/add_bot_config`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(newBotWithId),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Failed to create bot');
-      }
-
+      const response = await axiosInstance.post('/bot_details/add_bot_config/', 
+        newBotPayload, // Send directly as an object
+        {
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+  
       await fetchBots();
       setIsCreatingNew(false);
       setNewBotData(EMPTY_BOT);
@@ -145,50 +162,90 @@ const BotConfiguration = () => {
     }
   };
 
-  const handleDeleteBot = async (botId) => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/bot_details/delete_bot_config/${botId}`, {
-        method: 'DELETE',
-      });
+const handleDeleteBot = async (botId) => {
+  // Validate botId
+  if (!botId) {
+    setError('Cannot delete bot: Invalid bot ID');
+    return;
+  }
 
-      if (!response.ok) {
-        throw new Error('Failed to delete bot');
-      }
+  // Confirm deletion
+  const isConfirmed = window.confirm('Are you sure you want to delete this bot?');
+  
+  if (!isConfirmed) return;
 
-      await fetchBots();
-      setSelectedBotIndex(Math.min(selectedBotIndex, bots.length - 2));
-    } catch (err) {
-      setError(err.message);
-    }
-  };
+  try {
+    await axiosInstance.delete(`/bot_details/delete_bot_config/${botId}`);
 
-  const handleSaveBot = async () => {
-    const currentBot = getCurrentBot();
-    setIsSaving(true);
-    try {
-      const response = await fetch(`${API_BASE_URL}/bot_details/update_bot_config/${currentBot.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(currentBot),
-      });
+    // Fetch updated bot list after deletion
+    await fetchBots();
 
-      if (!response.ok) {
-        throw new Error('Failed to update bot');
-      }
+    // Reset error state
+    setError(null);
 
-      await fetchBots();
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setIsSaving(false);
-    }
-  };
+    // Adjust selected bot index
+    setSelectedBotIndex(prevIndex => {
+      // If the deleted bot was the last one, select the previous bot
+      // If only one bot remains, select the first bot
+      // If no bots remain, return 0
+      return Math.max(0, Math.min(prevIndex, bots.length - 2));
+    });
+  } catch (err) {
+    // More detailed error handling
+    const errorMessage = err.response?.data?.message || err.message || 'Failed to delete bot';
+    setError(errorMessage);
+    console.error('Delete bot error:', err);
+  }
+};
+
+const handleSaveBot = async () => {
+  const currentBot = getCurrentBot();
+  
+  // Validate bot name
+  if (!currentBot.name || currentBot.name.trim() === '') {
+    setError('Bot name is required');
+    return;
+  }
+
+  setIsSaving(true);
+  try {
+    // Prepare payload matching backend expectations
+    const payload = {
+      id:currentBot.id,
+      name: currentBot.name,
+      isBotEnabled: currentBot.isBotEnabled,
+      spamKeywords: currentBot.spamKeywords,
+      messageLimit: currentBot.messageLimit,
+      replyMessage: currentBot.replyMessage,
+      spamAction: currentBot.spamAction,
+      aidetection: currentBot.aiSpamDetection,
+      aireply: currentBot.aiSpamActionEnabled,
+      aiSpamActionPrompt: currentBot.aiSpamActionPrompt
+    };
+
+    // Use axiosInstance for consistency
+    await axiosInstance.put(`/bot_details/update_bot_config/${currentBot.id}`, payload);
+
+    // Reset error state
+    setError(null);
+
+    // Refresh bots list
+    await fetchBots();
+  } catch (err) {
+    // More detailed error handling
+    const errorMessage = err.response?.data?.message || err.message || 'Failed to update bot';
+    setError(errorMessage);
+    console.error('Update bot error:', err);
+  } finally {
+    setIsSaving(false);
+  }
+};
   const updateCurrentBot = (updates) => {
     if (isCreatingNew) {
+      // When creating a new bot, always update the newBotData
       setNewBotData(prev => ({ ...prev, ...updates }));
     } else {
+      // When editing an existing bot, update the bots array
       setBots(prevBots => 
         prevBots.map((bot, index) => 
           index === selectedBotIndex 
@@ -236,9 +293,12 @@ const BotConfiguration = () => {
             {!isCreatingNew && bots.length > 0 ? (
               <>
                 <Select 
-                  value={selectedBotIndex.toString()} 
-                  onValueChange={(value) => setSelectedBotIndex(Number(value))}
-                >
+  value={selectedBotIndex.toString()} 
+  onValueChange={(value) => {
+    setSelectedBotIndex(Number(value));
+    setIsCreatingNew(false);
+  }}
+>
                   <SelectTrigger>
                     <SelectValue placeholder="Select Bot" />
                   </SelectTrigger>
@@ -254,13 +314,13 @@ const BotConfiguration = () => {
                   <PlusCircle className="mr-2 h-4 w-4" /> Add Bot
                 </Button>
                 {bots.length > 1 && (
-                  <Button 
-                    onClick={() => handleDeleteBot(currentBot.id)} 
-                    variant="destructive"
-                    disabled={isSaving}
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" /> Delete Bot
-                  </Button>
+                <Button 
+                onClick={() => handleDeleteBot(currentBot.id || bots[selectedBotIndex]?.id)} 
+                variant="destructive"
+                disabled={isSaving}
+              >
+                <Trash2 className="mr-2 h-4 w-4" /> Delete Bot
+              </Button>
                 )}
                 <Button 
                   onClick={handleSaveBot} 
