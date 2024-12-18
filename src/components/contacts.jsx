@@ -32,6 +32,16 @@ import {
 import { SnackbarProvider, useSnackbar } from 'notistack';
 import axiosInstance from './api';
 // Dummy Endpoints
+const getTenantIdFromUrl = () => {
+  // Example: Extract tenant_id from "/3/home"
+  const pathArray = window.location.pathname.split('/');
+  if (pathArray.length >= 2) {
+    return pathArray[1]; // Assumes tenant_id is the first part of the path
+  }
+  return null; // Return null if tenant ID is not found or not in the expected place
+};
+
+const tenantId=getTenantIdFromUrl();
 const API_ENDPOINTS = {
   getGroups: '/group_details/get_groups',
   updateRating: '/contact/update-rating',
@@ -234,7 +244,11 @@ const fetchGroups = async () => {
     document.body.appendChild(loaderOverlay);
   
     try {
-      const response = await axios.get(API_ENDPOINTS.syncContacts);
+      const response = await axios.get(API_ENDPOINTS.syncContacts, {
+        headers: {
+          'X-tenant-id': `${tenantId}` // Replace with the actual tenant ID value
+        }
+      });
       
       // Remove loader after request completes
       document.body.removeChild(loaderOverlay);

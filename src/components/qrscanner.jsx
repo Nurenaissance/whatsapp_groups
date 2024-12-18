@@ -1,24 +1,31 @@
 import React, { useState } from 'react';
-import { Camera, QrCode, Check } from 'lucide-react';
+import { Camera, QrCode, Check, LogOut } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { QRCodeSVG } from 'qrcode.react';
 import { toast } from "sonner";
+const getTenantIdFromUrl = () => {
+  // Example: Extract tenant_id from "/3/home"
+  const pathArray = window.location.pathname.split('/');
+  if (pathArray.length >= 2) {
+    return pathArray[1]; // Assumes tenant_id is the first part of the path
+  }
+  return null; // Return null if tenant ID is not found or not in the expected place
+};
 
+const tenantId = getTenantIdFromUrl();
 const QRScanner = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [qrData, setQRData] = useState(null);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(true);
   const [isTracking, setIsTracking] = useState(false);
 
   const handleGetQRCode = async () => {
     setIsLoading(true);
     try {
-      // Use relative URL with a leading slash
       const response = await fetch('https://whatsappbot.centralus.cloudapp.azure.com/qr_code/get_qr', {
         method: 'GET',
         headers: {
-          // Optional: set headers if needed
           'Accept': 'application/json'
         }
       });
@@ -48,18 +55,18 @@ const QRScanner = () => {
   const handleStartTracking = async () => {
     setIsLoading(true);
     try {
-      // Use relative URL with a leading slash
       const response = await fetch('https://whatsappbot.centralus.cloudapp.azure.com/tracking/start ', {
         method: 'POST',
         headers: {
-          // Optional: set headers if needed
           'Accept': 'application/json',
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'X-Tenant-Id':`${tenantId}`
         }
       });
 
       if (response.ok) {
         setIsTracking(true);
+        setIsLoggedIn(true);
         toast.success('Tracking started successfully');
       } else {
         const errorData = await response.json();
@@ -73,13 +80,57 @@ const QRScanner = () => {
     }
   };
 
+  const handleLogout = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch('https://whatsappbot.centralus.cloudapp.azure.com/logout', {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        // Reset all states
+        setQRData(null);
+        setIsLoggedIn(false);
+        setIsTracking(false);
+        
+        // Show success toast
+        toast.success('Successfully logged out of WhatsApp');
+      } else {
+        const errorData = await response.json();
+        toast.error(errorData.message || 'Failed to log out');
+      }
+    } catch (error) {
+      console.error('Error logging out:', error);
+      toast.error('Error logging out of WhatsApp');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="container mx-auto p-6">
       <Card className="max-w-md mx-auto">
         <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <QrCode className="h-6 w-6" />
-            <span>WhatsApp Login & Tracking</span>
+          <CardTitle className="flex items-center justify-between space-x-2">
+            <div className="flex items-center space-x-2">
+              <QrCode className="h-6 w-6" />
+              <span>WhatsApp Login & Tracking</span>
+            </div>
+          
+              <Button 
+                variant="destructive" 
+                size="sm"
+                onClick={handleLogout}
+                disabled={isLoading}
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                Logout
+              </Button>
+            
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 text-center">
