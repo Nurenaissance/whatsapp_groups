@@ -25,7 +25,7 @@ import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import axiosInstance from './api';
-
+import BotConfigSection from './updateBot';
 const ManageGroup = () => {
   const { id } = useParams();
   const [groupData, setGroupData] = useState(null);
@@ -194,7 +194,10 @@ const ManageGroup = () => {
           </CardContent>
         </Card>
       </div>
-
+      <BotConfigSection 
+  groupId={id} 
+  currentBot={groupData.currentBot} // You'll need to add this to your group data
+/>
       <div className="grid md:grid-cols-2 gap-6">
         {/* Activity Chart */}
         <Card className="w-full">
