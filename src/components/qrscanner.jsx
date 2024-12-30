@@ -13,8 +13,9 @@ const getTenantIdFromUrl = () => {
   return null; // Return null if tenant ID is not found or not in the expected place
 };
 
-const tenantId = getTenantIdFromUrl();
 const QRScanner = () => {
+  
+const tenantId = getTenantIdFromUrl();
   const [isLoading, setIsLoading] = useState(false);
   const [qrData, setQRData] = useState(null);
   const [isLoggedIn, setIsLoggedIn] = useState(true);
