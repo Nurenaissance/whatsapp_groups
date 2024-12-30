@@ -28,43 +28,41 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import { Trash2, PlusCircle, Save, X } from "lucide-react";
-
-const API_BASE_URL = 'https://fastapi2-dsfwetawhjb6gkbz.centralindia-01.azurewebsites.net';
+import axiosInstance from './api';
 
 const EMPTY_BOT = {
   id: '',
   name: '',
   isBotEnabled: true,
-  spamKeywords: [],
+  spamKeywordsActions: {},
   messageLimit: 3,
   replyMessage: '',
-  spamAction: 'Reply',
-  aiSpamDetection: false,
-  aiSpamActionEnabled: false,
+  aidetection: false,
+  aireply: false,
   aiSpamActionPrompt: '',
 };
-import axiosInstance from './api';
+
 const SPAM_ACTIONS = [
-  { value: 'Reply', label: 'Reply with Message' },
-  { value: 'Delete', label: 'Delete Message' }
+  { value: 'block', label: 'Block User' },
+  { value: 'remove', label: 'Remove User' },
+  { value: 'delete', label: 'Delete Message' }
 ];
 
 const BotConfiguration = () => {
   const [bots, setBots] = useState([]);
   const [selectedBotIndex, setSelectedBotIndex] = useState(0);
   const [newKeyword, setNewKeyword] = useState('');
+  const [newKeywordAction, setNewKeywordAction] = useState('delete');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isCreatingNew, setIsCreatingNew] = useState(false);
   const [newBotData, setNewBotData] = useState(EMPTY_BOT);
 
-  // Fetch bots from endpoint
   const fetchBots = async () => {
     try {
       const response = await axiosInstance.get('/bot_details/get_bot_config');
       
-      // If no bots are found, response.data might be empty
       if (!response.data || response.data.bots.length === 0) {
         setBots([]);
         setIsLoading(false);
@@ -84,7 +82,6 @@ const BotConfiguration = () => {
       setBots(processedBots);
       setIsLoading(false);
     } catch (err) {
-      // If there's an error fetching bots, set bots to an empty array
       setBots([]);
       setError(err.response?.data?.message || err.message);
       setIsLoading(false);
@@ -95,19 +92,16 @@ const BotConfiguration = () => {
     fetchBots();
   }, []);
 
-  // Helper function to get currently selected bot
   const getCurrentBot = () => {
-    // If creating a new bot and no data exists, return the empty bot template
     if (isCreatingNew) {
       return {
         ...EMPTY_BOT,
-        ...newBotData // Merge any existing new bot data
+        ...newBotData
       };
     }
-  
-    // Otherwise, return the selected bot from the list
     return bots[selectedBotIndex] || EMPTY_BOT;
   };
+
   const handleStartNewBot = () => {
     setIsCreatingNew(true);
     setNewBotData(EMPTY_BOT);
@@ -119,41 +113,28 @@ const BotConfiguration = () => {
   };
 
   const handleCreateBot = async () => {
-    // Validate that the bot name is not empty
     if (!newBotData.name || newBotData.name.trim() === '') {
       setError('Bot name is required');
       return;
     }
   
-    // Prepare the bot data, removing any keys with undefined or null values
     const newBotPayload = {
       name: newBotData.name,
       isBotEnabled: newBotData.isBotEnabled,
-      spamKeywords: newBotData.spamKeywords,
+      spamKeywordsActions: newBotData.spamKeywordsActions,
       messageLimit: newBotData.messageLimit,
       replyMessage: newBotData.replyMessage,
-      spamAction: newBotData.spamAction,
-      aidetection: newBotData.aiSpamDetection,
-      aireply: newBotData.aiSpamActionEnabled,
+      aidetection: newBotData.aidetection,
+      aireply: newBotData.aireply,
       aiSpamActionPrompt: newBotData.aiSpamActionPrompt
     };
   
     setIsSaving(true);
     try {
-      const response = await axiosInstance.post('/bot_details/add_bot_config/', 
-        newBotPayload, // Send directly as an object
-        {
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-  
+      await axiosInstance.post('/bot_details/add_bot_config', newBotPayload);
       await fetchBots();
       setIsCreatingNew(false);
       setNewBotData(EMPTY_BOT);
-      
-      // Set the newly created bot as the selected bot
       setSelectedBotIndex(bots.length);
     } catch (err) {
       setError(err.message);
@@ -162,90 +143,65 @@ const BotConfiguration = () => {
     }
   };
 
-const handleDeleteBot = async (botId) => {
-  // Validate botId
-  if (!botId) {
-    setError('Cannot delete bot: Invalid bot ID');
-    return;
-  }
+  const handleDeleteBot = async (botId) => {
+    if (!botId) {
+      setError('Cannot delete bot: Invalid bot ID');
+      return;
+    }
 
-  // Confirm deletion
-  const isConfirmed = window.confirm('Are you sure you want to delete this bot?');
-  
-  if (!isConfirmed) return;
+    const isConfirmed = window.confirm('Are you sure you want to delete this bot?');
+    if (!isConfirmed) return;
 
-  try {
-    await axiosInstance.delete(`/bot_details/delete_bot_config/${botId}`);
+    try {
+      await axiosInstance.delete(`/bot_details/delete_bot_config/${botId}`);
+      await fetchBots();
+      setError(null);
+      setSelectedBotIndex(prevIndex => Math.max(0, Math.min(prevIndex, bots.length - 2)));
+    } catch (err) {
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to delete bot';
+      setError(errorMessage);
+      console.error('Delete bot error:', err);
+    }
+  };
 
-    // Fetch updated bot list after deletion
-    await fetchBots();
+  const handleSaveBot = async () => {
+    const currentBot = getCurrentBot();
+    
+    if (!currentBot.name || currentBot.name.trim() === '') {
+      setError('Bot name is required');
+      return;
+    }
 
-    // Reset error state
-    setError(null);
+    setIsSaving(true);
+    try {
+      const payload = {
+        id: currentBot.id,
+        name: currentBot.name,
+        isBotEnabled: currentBot.isBotEnabled,
+        spamKeywordsActions: currentBot.spamKeywordsActions,
+        messageLimit: currentBot.messageLimit,
+        replyMessage: currentBot.replyMessage,
+        aidetection: currentBot.aidetection,
+        aireply: currentBot.aireply,
+        aiSpamActionPrompt: currentBot.aiSpamActionPrompt
+      };
 
-    // Adjust selected bot index
-    setSelectedBotIndex(prevIndex => {
-      // If the deleted bot was the last one, select the previous bot
-      // If only one bot remains, select the first bot
-      // If no bots remain, return 0
-      return Math.max(0, Math.min(prevIndex, bots.length - 2));
-    });
-  } catch (err) {
-    // More detailed error handling
-    const errorMessage = err.response?.data?.message || err.message || 'Failed to delete bot';
-    setError(errorMessage);
-    console.error('Delete bot error:', err);
-  }
-};
+      await axiosInstance.put(`/bot_details/update_bot_config/${currentBot.id}`, payload);
+      setError(null);
+      await fetchBots();
+    } catch (err) {
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to update bot';
+      setError(errorMessage);
+      console.error('Update bot error:', err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
-const handleSaveBot = async () => {
-  const currentBot = getCurrentBot();
-  
-  // Validate bot name
-  if (!currentBot.name || currentBot.name.trim() === '') {
-    setError('Bot name is required');
-    return;
-  }
-
-  setIsSaving(true);
-  try {
-    // Prepare payload matching backend expectations
-    const payload = {
-      id:currentBot.id,
-      name: currentBot.name,
-      isBotEnabled: currentBot.isBotEnabled,
-      spamKeywords: currentBot.spamKeywords,
-      messageLimit: currentBot.messageLimit,
-      replyMessage: currentBot.replyMessage,
-      spamAction: currentBot.spamAction,
-      aidetection: currentBot.aiSpamDetection,
-      aireply: currentBot.aiSpamActionEnabled,
-      aiSpamActionPrompt: currentBot.aiSpamActionPrompt
-    };
-
-    // Use axiosInstance for consistency
-    await axiosInstance.put(`/bot_details/update_bot_config/${currentBot.id}`, payload);
-
-    // Reset error state
-    setError(null);
-
-    // Refresh bots list
-    await fetchBots();
-  } catch (err) {
-    // More detailed error handling
-    const errorMessage = err.response?.data?.message || err.message || 'Failed to update bot';
-    setError(errorMessage);
-    console.error('Update bot error:', err);
-  } finally {
-    setIsSaving(false);
-  }
-};
   const updateCurrentBot = (updates) => {
     if (isCreatingNew) {
-      // When creating a new bot, always update the newBotData
       setNewBotData(prev => ({ ...prev, ...updates }));
     } else {
-      // When editing an existing bot, update the bots array
       setBots(prevBots => 
         prevBots.map((bot, index) => 
           index === selectedBotIndex 
@@ -255,19 +211,35 @@ const handleSaveBot = async () => {
       );
     }
   };
+
   const handleAddKeyword = () => {
     const currentBot = getCurrentBot();
-    if (newKeyword && !currentBot.spamKeywords.includes(newKeyword)) {
+    if (newKeyword && !currentBot.spamKeywordsActions[newKeyword]) {
       updateCurrentBot({
-        spamKeywords: [...currentBot.spamKeywords, newKeyword]
+        spamKeywordsActions: {
+          ...currentBot.spamKeywordsActions,
+          [newKeyword]: newKeywordAction
+        }
       });
       setNewKeyword('');
+      setNewKeywordAction('remove');
     }
   };
 
   const handleRemoveKeyword = (keyword) => {
+    const currentBot = getCurrentBot();
+    const updatedKeywords = { ...currentBot.spamKeywordsActions };
+    delete updatedKeywords[keyword];
+    updateCurrentBot({ spamKeywordsActions: updatedKeywords });
+  };
+
+  const handleUpdateKeywordAction = (keyword, action) => {
+    const currentBot = getCurrentBot();
     updateCurrentBot({
-      spamKeywords: getCurrentBot().spamKeywords.filter(k => k !== keyword)
+      spamKeywordsActions: {
+        ...currentBot.spamKeywordsActions,
+        [keyword]: action
+      }
     });
   };
 
@@ -283,7 +255,7 @@ const handleSaveBot = async () => {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-       <Card>
+      <Card>
         <CardHeader>
           <CardTitle>Bot Configuration</CardTitle>
           <CardDescription>Manage and configure your AI bots</CardDescription>
@@ -293,12 +265,12 @@ const handleSaveBot = async () => {
             {!isCreatingNew && bots.length > 0 ? (
               <>
                 <Select 
-  value={selectedBotIndex.toString()} 
-  onValueChange={(value) => {
-    setSelectedBotIndex(Number(value));
-    setIsCreatingNew(false);
-  }}
->
+                  value={selectedBotIndex.toString()} 
+                  onValueChange={(value) => {
+                    setSelectedBotIndex(Number(value));
+                    setIsCreatingNew(false);
+                  }}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Select Bot" />
                   </SelectTrigger>
@@ -314,13 +286,13 @@ const handleSaveBot = async () => {
                   <PlusCircle className="mr-2 h-4 w-4" /> Add Bot
                 </Button>
                 {bots.length > 1 && (
-                <Button 
-                onClick={() => handleDeleteBot(currentBot.id || bots[selectedBotIndex]?.id)} 
-                variant="destructive"
-                disabled={isSaving}
-              >
-                <Trash2 className="mr-2 h-4 w-4" /> Delete Bot
-              </Button>
+                  <Button 
+                    onClick={() => handleDeleteBot(currentBot.id)} 
+                    variant="destructive"
+                    disabled={isSaving}
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" /> Delete Bot
+                  </Button>
                 )}
                 <Button 
                   onClick={handleSaveBot} 
@@ -331,7 +303,6 @@ const handleSaveBot = async () => {
                 </Button>
               </>
             ) : (
-              // Always show create bot options when no bots exist or creating new
               <>
                 <span className="text-lg font-semibold">
                   {isCreatingNew ? 'Creating New Bot' : 'No Bots Configured'}
@@ -358,9 +329,8 @@ const handleSaveBot = async () => {
         </CardContent>
       </Card>
 
-     {(bots.length > 0 || isCreatingNew) && (
+      {(bots.length > 0 || isCreatingNew) && (
         <>
-          {/* Existing cards for bot settings, spam detection, etc. */}
           <Card>
             <CardHeader>
               <CardTitle>Bot Settings</CardTitle>
@@ -369,7 +339,7 @@ const handleSaveBot = async () => {
               <div className="flex items-center space-x-4">
                 <Label>Bot Name</Label>
                 <Input 
-                  value={getCurrentBot().name} 
+                  value={currentBot.name} 
                   onChange={(e) => updateCurrentBot({ name: e.target.value })}
                   placeholder="Enter bot name"
                 />
@@ -378,156 +348,185 @@ const handleSaveBot = async () => {
               <div className="flex items-center space-x-4">
                 <Label>Status</Label>
                 <Switch 
-                  checked={getCurrentBot().isBotEnabled}
+                  checked={currentBot.isBotEnabled}
                   onCheckedChange={(checked) => updateCurrentBot({ isBotEnabled: checked })}
                 />
-                <span>{getCurrentBot().isBotEnabled ? 'Enabled' : 'Disabled'}</span>
+                <span>{currentBot.isBotEnabled ? 'Enabled' : 'Disabled'}</span>
               </div>
             </CardContent>
           </Card>
 
-          {/* Other existing cards (Spam Detection, Spam Action, etc.) */}
-     
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Spam Detection</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center space-x-4">
-            <Label>AI-Powered Spam Detection</Label>
-            <Switch 
-              checked={currentBot.aiSpamDetection}
-              onCheckedChange={(checked) => updateCurrentBot({ aiSpamDetection: checked })}
-            />
-            <span>{currentBot.aiSpamDetection ? 'Enabled' : 'Disabled'}</span>
-          </div>
-          <div className="flex space-x-2">
-            <Input 
-              placeholder="Add spam keyword" 
-              value={newKeyword}
-              onChange={(e) => setNewKeyword(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleAddKeyword()}
-            />
-            <Button onClick={handleAddKeyword}>Add Keyword</Button>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            {currentBot.spamKeywords.map(keyword => (
-              <Badge 
-                key={keyword} 
-                variant="secondary"
-                className="flex items-center"
-              >
-                {keyword}
-                <button 
-                  onClick={() => handleRemoveKeyword(keyword)}
-                  className="ml-2"
-                >
-                  <Trash2 className="h-3 w-3" />
-                </button>
-              </Badge>
-            ))}
-          </div>
-
-          {currentBot.aiSpamDetection && (
-            <div className="mt-4 text-sm text-muted-foreground">
-              AI Spam Detection will use advanced language understanding to detect spam 
-              beyond exact keyword matches.
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Spam Action</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center space-x-4">
-            <Label>Spam Action Type</Label>
-            <Select 
-              value={currentBot.spamAction}
-              onValueChange={(value) => updateCurrentBot({ spamAction: value })}
-            >
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Select Action" />
-              </SelectTrigger>
-              <SelectContent>
-                {SPAM_ACTIONS.map((action) => (
-                  <SelectItem key={action.value} value={action.value}>
-                    {action.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex items-center space-x-4">
-            <Label>AI-Powered Spam Action</Label>
-            <Switch 
-              checked={currentBot.aiSpamActionEnabled}
-              onCheckedChange={(checked) => updateCurrentBot({ aiSpamActionEnabled: checked })}
-            />
-            <span>{currentBot.aiSpamActionEnabled ? 'Enabled' : 'Disabled'}</span>
-          </div>
-
-          {currentBot.spamAction === 'Reply' && (
-            <div className="flex items-center space-x-4">
-              <Label>Reply Message</Label>
-              <Textarea
-                value={currentBot.replyMessage || ''}
-                onChange={(e) => updateCurrentBot({ replyMessage: e.target.value })}
-                placeholder="Enter reply message for spam detection"
-              />
-            </div>
-          )}
-
-          {currentBot.aiSpamActionEnabled && (
-            <div className="space-y-2">
-              <Label>AI Action Prompt</Label>
-              <Textarea
-                value={currentBot.aiSpamActionPrompt || ''}
-                onChange={(e) => updateCurrentBot({ aiSpamActionPrompt: e.target.value })}
-                placeholder="Describe how the AI should handle spam messages (e.g., 'Respond with a polite warning that escalates based on repeat offenses')"
-              />
-              <div className="text-sm text-muted-foreground">
-                When AI Spam Action is enabled, the bot will use this prompt to dynamically 
-                generate responses or determine actions based on the context and severity of spam.
+          <Card>
+            <CardHeader>
+              <CardTitle>Spam Detection</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center space-x-4">
+                <Label>AI-Powered Spam Detection</Label>
+                <Switch 
+                  checked={currentBot.aidetection}
+                  onCheckedChange={(checked) => updateCurrentBot({ aidetection: checked })}
+                />
+                <span>{currentBot.aidetection ? 'Enabled' : 'Disabled'}</span>
               </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
 
-      {!isCreatingNew && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Action Logs</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>User</TableHead>
-                  <TableHead>Message</TableHead>
-                  <TableHead>Action</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {currentBot.logs.map((log) => (
-                  <TableRow key={log.id}>
-                    <TableCell>{log.user}</TableCell>
-                    <TableCell>{log.message}</TableCell>
-                    <TableCell>{log.action}</TableCell>
-                  </TableRow>
+              <div className="flex space-x-2">
+                <Input 
+                  placeholder="Add spam keyword" 
+                  value={newKeyword}
+                  onChange={(e) => setNewKeyword(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleAddKeyword()}
+                />
+                <Select 
+                  value={newKeywordAction}
+                  onValueChange={setNewKeywordAction}
+                >
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Select Action" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SPAM_ACTIONS.map((action) => (
+                      <SelectItem key={action.value} value={action.value}>
+                        {action.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button onClick={handleAddKeyword}>Add Keyword</Button>
+              </div>
+
+              <div className="space-y-2">
+                {Object.entries(currentBot.spamKeywordsActions || {}).map(([keyword, action]) => (
+                  <div key={keyword} className="flex items-center space-x-2">
+                    <Badge variant="secondary" className="px-2 py-1">
+                      {keyword}
+                    </Badge>
+                    <Select 
+                      value={action}
+                      onValueChange={(newAction) => handleUpdateKeywordAction(keyword, newAction)}
+                    >
+                      <SelectTrigger className="w-[150px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {SPAM_ACTIONS.map((spamAction) => (
+                          <SelectItem key={spamAction.value} value={spamAction.value}>
+                            {spamAction.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button 
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleRemoveKeyword(keyword)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      )}
-         </>
+              </div>
+              {currentBot.aidetection && (
+                <div className="mt-4 text-sm text-muted-foreground">
+                  AI Spam Detection will use advanced language understanding to detect spam 
+                  beyond exact keyword matches.
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Spam Response</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center space-x-4">
+                <Label>AI-Powered Response</Label>
+                <Switch 
+                  checked={currentBot.aireply}
+                  onCheckedChange={(checked) => updateCurrentBot({ aireply: checked })}
+                />
+                <span>{currentBot.aireply ? 'Enabled' : 'Disabled'}</span>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Reply Message</Label>
+                <Textarea
+                  value={currentBot.replyMessage || ''}
+                  onChange={(e) => updateCurrentBot({ replyMessage: e.target.value })}
+                  placeholder="Enter default reply message for spam detection"
+                />
+                <div className="text-sm text-muted-foreground">
+                  This message will be used when a specific action is set to "Reply"
+                </div>
+              </div>
+
+              {currentBot.aireply && (
+                <div className="space-y-2">
+                  <Label>AI Response Prompt</Label>
+                  <Textarea
+                    value={currentBot.aiSpamActionPrompt || ''}
+                    onChange={(e) => updateCurrentBot({ aiSpamActionPrompt: e.target.value })}
+                    placeholder="Describe how the AI should handle spam messages (e.g., 'Respond with a polite warning that escalates based on repeat offenses')"
+                  />
+                  <div className="text-sm text-muted-foreground">
+                    When AI Response is enabled, the bot will use this prompt to dynamically 
+                    generate responses based on the context and severity of spam.
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center space-x-4">
+                <Label>Message Limit</Label>
+                <Input 
+                  type="number"
+                  value={currentBot.messageLimit}
+                  onChange={(e) => updateCurrentBot({ messageLimit: parseInt(e.target.value) || 0 })}
+                  min="0"
+                  className="w-24"
+                />
+                <span className="text-sm text-muted-foreground">
+                  Maximum number of messages before triggering spam detection
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+
+          {!isCreatingNew && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Action Logs</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>User</TableHead>
+                      <TableHead>Message</TableHead>
+                      <TableHead>Action</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {currentBot.logs?.map((log) => (
+                      <TableRow key={log.id}>
+                        <TableCell>{log.user}</TableCell>
+                        <TableCell>{log.message}</TableCell>
+                        <TableCell>{log.action}</TableCell>
+                      </TableRow>
+                    ))}
+                    {(!currentBot.logs || currentBot.logs.length === 0) && (
+                      <TableRow>
+                        <TableCell colSpan={3} className="text-center text-muted-foreground">
+                          No logs available
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          )}
+        </>
       )}
     </div>
   );
