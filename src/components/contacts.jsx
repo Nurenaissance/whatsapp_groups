@@ -244,7 +244,7 @@ const fetchGroups = async () => {
     document.body.appendChild(loaderOverlay);
   
     try {
-      const response = await axios.get(API_ENDPOINTS.syncContacts, {
+      const response = await axiosInstance.get(API_ENDPOINTS.syncContacts, {
         headers: {
           'X-tenant-id': `${tenantId}` // Replace with the actual tenant ID value
         }
