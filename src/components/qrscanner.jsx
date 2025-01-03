@@ -5,12 +5,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { QRCodeSVG } from 'qrcode.react';
 import { toast } from "sonner";
 const getTenantIdFromUrl = () => {
-  // Example: Extract tenant_id from "/3/home"
   const pathArray = window.location.pathname.split('/');
-  if (pathArray.length >= 2) {
-    return pathArray[1]; // Assumes tenant_id is the first part of the path
+  // Find the index of "settings" in the path array
+  const settingsIndex = pathArray.indexOf('settings');
+  // Check if "settings" exists and there is a segment before it
+  if (settingsIndex > 1) {
+    return pathArray[settingsIndex - 1]; // Return the segment before "settings"
   }
-  return null; // Return null if tenant ID is not found or not in the expected place
+  return null; // Return null if "settings" is not found or no preceding segment
 };
 
 const QRScanner = () => {

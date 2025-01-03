@@ -50,9 +50,10 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
-import { toast } from "@/hooks/use-toast"
+import { toast } from "sonner";
 import TimePicker from './timepicker'
 const GROUPS_ENDPOINT = "/group_details/get_groups";
+
 const safeFormatDate = (dateString) => {
   try {
     // First try parsing as ISO string
