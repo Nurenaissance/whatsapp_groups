@@ -132,11 +132,7 @@ const Messages = () => {
         setGroups(groupNames);
       } catch (error) {
         console.error("Error fetching groups:", error);
-        toast({
-          title: "Error",
-          description: "Failed to fetch groups",
-          variant: "destructive"
-        });
+        toast.error("Failed to fetch groups");
       }
     };
 
@@ -165,11 +161,7 @@ useEffect(() => {
       setScheduledMessages(sortedMessages)
     } catch (error) {
       console.error("Fetch error:", error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch scheduled messages",
-        variant: "destructive"
-      })
+      toast.error("Failed to fetch scheduled messages")
     }
   };
 
@@ -186,20 +178,12 @@ useEffect(() => {
 // Handle Message Submission
 const handleSubmit = async () => {
   if (selectedGroups.length === 0) {
-    toast({
-      title: "Group Selection Required",
-      description: "Please select at least one recipient group",
-      variant: "destructive",
-    });
+    toast.error("Please select at least one recipient group");
     return;
   }
   // Validation
   if (!scheduledTime || (!messageContent && !media)) {
-    toast({
-      title: "Validation Error",
-      description: "Please fill all fields and schedule the message!",
-      variant: "destructive",
-    });
+    toast.error( "Please fill all fields and schedule the message!");
     return;
   }
 
@@ -215,11 +199,7 @@ const handleSubmit = async () => {
         mediaURL = await uploadToBlob(media, userId, tenantId);
       } catch (error) {
         console.error("Error uploading to Azure:", error);
-        toast({
-          title: "Upload Error",
-          description: "Failed to upload media file",
-          variant: "destructive",
-        });
+        toast.error("Failed to upload media file");
         return;
       }
     }
@@ -262,21 +242,14 @@ const handleSubmit = async () => {
       ]);
 
       resetForm();
-      toast({
-        title: "Success",
-        description: "Message scheduled successfully",
-      });
+      toast.success("Message scheduled successfully");
     } else {
       const errorData = await response.json();
       throw new Error(errorData.detail?.[0]?.msg || "Failed to schedule message");
     }
   } catch (error) {
     console.error(error);
-    toast({
-      title: "Error",
-      description: error.message || "Failed to schedule message",
-      variant: "destructive",
-    });
+    toast.error("Failed to schedule message");
   }
 };
 
@@ -312,20 +285,9 @@ const handleSubmit = async () => {
       setScheduledMessages(sortedMessages)
   
       // Enhanced toast with more detail
-      toast({
-        title: "Message Deleted",
-        description: "Your scheduled message has been successfully removed.",
-        duration: 3000, // Show for 3 seconds
-        className: "bg-red-500 text-white", // Custom styling to make it stand out
-        icon: <Trash2 className="w-5 h-5 text-white" />, // Add a delete icon
-      })
+      toast.success("Your scheduled message has been successfully removed.")
     } catch (error) {
-      toast({
-        title: "Deletion Failed",
-        description: error.response?.data?.detail || error.message || "Unable to delete the scheduled message",
-        variant: "destructive",
-        duration: 2000
-      })
+      toast.error("Unable to delete the scheduled message")
     }
   }
   // File Upload Handler

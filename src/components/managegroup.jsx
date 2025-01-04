@@ -76,7 +76,8 @@ const ManageGroup = () => {
         totalMessages: groupActivityResponse.data.data.total_messages,
         activityTrend,
         members: members.slice(0, 5), // Show top 5 members
-        messageCount: groupActivityResponse.data.data.total_messages || 0
+        messageCount: groupActivityResponse.data.data.total_messages || 0,
+        currentBot: groupDetailsResponse.data.data.botconfig_id
       };
 
       setGroupData(processedGroupData);
@@ -86,11 +87,7 @@ const ManageGroup = () => {
       setError('Failed to fetch group details');
       setLoading(false);
       
-      toast({
-        title: "Error",
-        description: "Failed to load group details",
-        variant: "destructive"
-      });
+      toast.error("Failed to load group details");
     }
   };
 
@@ -196,7 +193,7 @@ const ManageGroup = () => {
       </div>
       <BotConfigSection 
   groupId={id} 
-  currentBot={groupData.currentBot} // You'll need to add this to your group data
+  currentBotConfig={groupData.currentBot} // You'll need to add this to your group data
 />
       <div className="grid md:grid-cols-2 gap-6">
         {/* Activity Chart */}

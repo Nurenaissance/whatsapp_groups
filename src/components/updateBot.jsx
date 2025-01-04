@@ -9,13 +9,25 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Bot as BotIcon, Save as SaveIcon } from 'lucide-react';
-import { toast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import axiosInstance from './api';
+
 const BotConfigSection = ({ groupId, currentBotConfig }) => {
   const [bots, setBots] = useState([]);
-  const [selectedBotConfig, setSelectedBotConfig] = useState(currentBotConfig);
+  const [selectedBotConfig, setSelectedBotConfig] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [updateLoading, setUpdateLoading] = useState(false);
+
+  // Initialize selectedBotConfig when currentBotConfig or bots change
+  useEffect(() => {
+    console.log(currentBotConfig,"first true");
+    if (currentBotConfig && bots.length > 0) {
+      // Convert both to strings for comparison
+      const botConfigId = currentBotConfig.toString();
+      setSelectedBotConfig(botConfigId);
+      console.log(botConfigId,"trueeee");
+    }
+  }, [currentBotConfig, bots]);
 
   useEffect(() => {
     fetchBots();
@@ -33,6 +45,7 @@ const BotConfigSection = ({ groupId, currentBotConfig }) => {
   
       const processedBots = response.data.bots.map((bot) => ({
         ...bot,
+        id: bot.id.toString(), // Convert id to string
         logs: bot.logs.map(log => ({
           ...log,
           id: crypto.randomUUID(),
@@ -43,11 +56,7 @@ const BotConfigSection = ({ groupId, currentBotConfig }) => {
   
       setBots(processedBots);
     } catch (err) {
-      toast({
-        title: "Error",
-        description: "Failed to fetch available bots",
-        variant: "destructive"
-      });
+      toast.error("Failed to fetch available bots");
       setBots([]);
     } finally {
       setIsLoading(false);
@@ -56,32 +65,20 @@ const BotConfigSection = ({ groupId, currentBotConfig }) => {
 
   const handleUpdateBot = async () => {
     if (!selectedBotConfig) {
-      toast({
-        title: "Error",
-        description: "Please select a bot configuration",
-        variant: "destructive"
-      });
+      toast.error("Please select a bot configuration");
       return;
     }
 
     try {
       setUpdateLoading(true);
       
-      // Use the axiosInstance which should already have the tenant ID header configured
       await axiosInstance.post(`group_details/group_update_botconfig/${groupId}`, {
-        botconfig_id: selectedBotConfig // Updated to match backend expectation
+        botconfig_id: parseInt(selectedBotConfig) // Convert back to number for API
       });
       
-      toast({
-        title: "Success",
-        description: "Bot configuration updated successfully",
-      });
+      toast.success("Bot configuration updated successfully");
     } catch (err) {
-      toast({
-        title: "Error",
-        description: err.response?.data?.detail || "Failed to update bot configuration",
-        variant: "destructive"
-      });
+      toast.error("Failed to update bot configuration");
     } finally {
       setUpdateLoading(false);
     }

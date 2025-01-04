@@ -26,6 +26,7 @@ import {
   useParams
 } from 'react-router-dom';
 import { useAuth } from './authContext';
+import { Toaster } from 'sonner';
 
 // Import icons
 import DashboardIcon from '@mui/icons-material/Dashboard';
@@ -106,6 +107,7 @@ function App() {
 
   return (
     <Box sx={{ display: 'flex' }}>
+      <Toaster position="top-center" duration={3000} style={{border:'none'}}/>
       <CssBaseline />
       
       {isAuthenticatedGroup && (

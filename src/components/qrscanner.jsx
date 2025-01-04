@@ -73,7 +73,7 @@ const tenantId = getTenantIdFromUrl();
         toast.success('Tracking started successfully');
       } else {
         const errorData = await response.json();
-        toast.error(errorData.message || 'Failed to start tracking');
+        toast.error('Failed to start tracking');
       }
     } catch (error) {
       console.error('Error starting tracking:', error);
@@ -104,7 +104,7 @@ const tenantId = getTenantIdFromUrl();
         toast.success('Successfully logged out of WhatsApp');
       } else {
         const errorData = await response.json();
-        toast.error(errorData.message || 'Failed to log out');
+        toast.error('Failed to log out');
       }
     } catch (error) {
       console.error('Error logging out:', error);
