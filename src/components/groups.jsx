@@ -123,10 +123,12 @@ const Groups = () => {
     setNewGroup({ name: '', description: '', members: ['', ''] });
     setIsCreateGroupDialogOpen(false);
   };
-
-  const handleDeleteGroup = (group) => {
+ // https://fastapi2-dsfwetawhjb6gkbz.centralindia-01.azurewebsites.net/group_details/delete_group/%7Bgroup_name%7D
+  const handleDeleteGroup = async(group) => {
+    
     setSelectedGroup(group);
     setIsDeleteDialogOpen(true);
+    await axiosInstance.delete(`/group_details/delete_group/${group.name}`);
   };
 
   const confirmDeleteGroup = () => {
