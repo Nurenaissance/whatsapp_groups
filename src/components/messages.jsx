@@ -227,8 +227,8 @@ const handleSubmit = async () => {
 
     const response = await axiosInstance.post('/schedule_message/create_schedule_message', newMessage);
 
-    if (response.ok) {
-      const createdMessage = await response.json();
+    if (response) {
+      const createdMessage = await response.data;
 
       // Update local state with the server-created message
       setScheduledMessages((prev) => [
