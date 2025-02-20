@@ -28,32 +28,36 @@ import { toast } from 'sonner';
 
 const TimePicker = ({ scheduledTime, setScheduledTime }) => {
   const [tempTime, setTempTime] = useState({
-    hours: scheduledTime ? scheduledTime.getHours() : 12,
+    hours: scheduledTime ? (scheduledTime.getHours() % 12 || 12) : 12,
     minutes: scheduledTime ? scheduledTime.getMinutes() : 0,
     period: scheduledTime ? (scheduledTime.getHours() >= 12 ? 'PM' : 'AM') : 'AM',
   });
 
   const handleTimeChange = (field, value) => {
     const newTempTime = { ...tempTime, [field]: value };
+    
+    if (!scheduledTime) {
+      setTempTime(newTempTime);
+      return;
+    }
 
+    const newDateTime = new Date(scheduledTime);
+    
     // Convert to 24-hour format
     let hours = parseInt(newTempTime.hours);
     if (newTempTime.period === 'PM' && hours !== 12) {
       hours += 12;
-    }
-    if (newTempTime.period === 'AM' && hours === 12) {
+    } else if (newTempTime.period === 'AM' && hours === 12) {
       hours = 0;
     }
 
-    const newDateTime = scheduledTime ? new Date(scheduledTime) : new Date();
     newDateTime.setHours(hours, parseInt(newTempTime.minutes), 0, 0);
 
-    // Only update if time is valid
-    if (validateScheduledTime(newDateTime, newTempTime)) {
+    if (isValidDateTime(newDateTime)) {
       setTempTime(newTempTime);
       setScheduledTime(newDateTime);
     } else {
-      toast.error('Selected time must be greater than the current time');
+      toast.error('Selected time must be in the future');
     }
   };
 
@@ -61,24 +65,54 @@ const TimePicker = ({ scheduledTime, setScheduledTime }) => {
     return Array.from({ length: end - start + 1 }, (_, i) => start + i);
   };
 
-  const validateScheduledTime = (selectedDate, tempTime) => {
-    // Get current date and time
-    const currentDate = new Date();
-
-    // Set selected time (hours, minutes, period)
-    if (tempTime) {
-      const selectedHours =
-        tempTime.period === 'PM' && tempTime.hours !== '12'
-          ? parseInt(tempTime.hours) + 12
-          : parseInt(tempTime.hours);
-      const selectedMinutes = parseInt(tempTime.minutes);
-
-      selectedDate.setHours(selectedHours);
-      selectedDate.setMinutes(selectedMinutes);
+  const isValidDateTime = (dateTime) => {
+    const now = new Date();
+    const selectedDate = new Date(dateTime);
+    
+    // If dates are different, only check the date
+    if (selectedDate.toDateString() !== now.toDateString()) {
+      return selectedDate > now;
     }
 
-    // Compare selected date with the current date
-    return selectedDate >= currentDate; // Valid if greater than or equal to current time
+    // If same date, check the full timestamp
+    return selectedDate > now;
+  };
+
+  const handleDateSelect = (date) => {
+    if (!date) return;
+
+    const newDateTime = new Date(date);
+    
+    // Keep the currently selected time when changing date
+    let hours = parseInt(tempTime.hours);
+    if (tempTime.period === 'PM' && hours !== 12) {
+      hours += 12;
+    } else if (tempTime.period === 'AM' && hours === 12) {
+      hours = 0;
+    }
+
+    newDateTime.setHours(hours, parseInt(tempTime.minutes), 0, 0);
+
+    if (isValidDateTime(newDateTime)) {
+      setScheduledTime(newDateTime);
+    } else {
+      // If selected date is today and time is in the past,
+      // set time to current time + 1 minute
+      if (newDateTime.toDateString() === new Date().toDateString()) {
+        const now = new Date();
+        now.setMinutes(now.getMinutes() + 1);
+        setScheduledTime(now);
+        
+        // Update tempTime to reflect the new time
+        setTempTime({
+          hours: now.getHours() % 12 || 12,
+          minutes: now.getMinutes(),
+          period: now.getHours() >= 12 ? 'PM' : 'AM'
+        });
+      } else {
+        setScheduledTime(newDateTime);
+      }
+    }
   };
 
   return (
@@ -99,86 +133,82 @@ const TimePicker = ({ scheduledTime, setScheduledTime }) => {
             >
               <CalendarIcon className="mr-2 h-4 w-4" />
               {scheduledTime ? (
-                format(scheduledTime, 'PPP HH:mm')
+                format(scheduledTime, 'PPP hh:mm a')
               ) : (
                 <span>Pick a date and time</span>
               )}
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0 flex">
-  <div className="p-2">
-    <Calendar
-      mode="single"
-      selected={scheduledTime}
-      onSelect={(date) => {
-        // Ensure the selected date/time is greater than the current date/time
-        if (validateScheduledTime(date, tempTime)) {
-          setScheduledTime(date);
-        } else {
-          // Show the toast error instead of alert
-          toast.error('Selected date/time must be greater than the current date/time.');
-        }
-      }}
-      initialFocus
-    />
-  </div>
-  <div className="border-l p-4 space-y-4 w-[200px]">
-    <div className="space-y-2">
-      <Label>Hours</Label>
-      <Select
-        value={tempTime.hours.toString()}
-        onValueChange={(value) => handleTimeChange('hours', value)}
-      >
-        <SelectTrigger>
-          <SelectValue placeholder="Hour" />
-        </SelectTrigger>
-        <SelectContent className="max-h-40 overflow-y-auto">
-          {generateTimeOptions(1, 12).map((hour) => (
-            <SelectItem key={hour} value={hour.toString()}>
-              {hour.toString().padStart(2, '0')}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
+            <div className="p-2">
+              <Calendar
+                mode="single"
+                selected={scheduledTime}
+                onSelect={handleDateSelect}
+                disabled={(date) => {
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  return date < today;
+                }}
+                initialFocus
+              />
+            </div>
+            <div className="border-l p-4 space-y-4 w-[200px]">
+              <div className="space-y-2">
+                <Label>Hours</Label>
+                <Select
+                  value={tempTime.hours.toString()}
+                  onValueChange={(value) => handleTimeChange('hours', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Hour" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {generateTimeOptions(1, 12).map((hour) => (
+                      <SelectItem key={hour} value={hour.toString()}>
+                        {hour.toString().padStart(2, '0')}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-    <div className="space-y-2">
-      <Label>Minutes</Label>
-      <Select
-        value={tempTime.minutes.toString()}
-        onValueChange={(value) => handleTimeChange('minutes', value)}
-      >
-        <SelectTrigger>
-          <SelectValue placeholder="Minute" />
-        </SelectTrigger>
-        <SelectContent className="max-h-40 overflow-y-auto">
-          {generateTimeOptions(0, 59).map((minute) => (
-            <SelectItem key={minute} value={minute.toString()}>
-              {minute.toString().padStart(2, '0')}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
+              <div className="space-y-2">
+                <Label>Minutes</Label>
+                <Select
+                  value={tempTime.minutes.toString()}
+                  onValueChange={(value) => handleTimeChange('minutes', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Minute" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {generateTimeOptions(0, 59).map((minute) => (
+                      <SelectItem key={minute} value={minute.toString()}>
+                        {minute.toString().padStart(2, '0')}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-    <div className="space-y-2">
-      <Label>Period</Label>
-      <Select
-        value={tempTime.period}
-        onValueChange={(value) => handleTimeChange('period', value)}
-      >
-        <SelectTrigger>
-          <SelectValue placeholder="AM/PM" />
-        </SelectTrigger>
-        <SelectContent className="max-h-40 overflow-y-auto">
-          <SelectItem value="AM">AM</SelectItem>
-          <SelectItem value="PM">PM</SelectItem>
-        </SelectContent>
-      </Select>
-    </div>
-  </div>
-</PopoverContent>
-
+              <div className="space-y-2">
+                <Label>Period</Label>
+                <Select
+                  value={tempTime.period}
+                  onValueChange={(value) => handleTimeChange('period', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="AM/PM" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="AM">AM</SelectItem>
+                    <SelectItem value="PM">PM</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </PopoverContent>
         </Popover>
       </CardContent>
     </Card>
